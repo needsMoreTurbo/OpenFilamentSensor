@@ -1,5 +1,8 @@
 Import("env")
 import os
+import shutil
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 APP_BIN = "$BUILD_DIR/${PROGNAME}.bin"
@@ -7,6 +10,33 @@ LITTLEFS_BIN = "$BUILD_DIR/littlefs.bin"
 MERGED_BIN = "$BUILD_DIR/${PROGNAME}_merged.bin"
 BOARD_CONFIG = env.BoardConfig()
 DEFAULT_LFS_ADDRESS = "0x3d0000"
+SECRET_FILENAMES = (
+    "user_settings.secrets.json",
+    "user_settings.secrets.json.example",
+)
+
+
+@contextmanager
+def _temporarily_hide_paths(paths):
+    backups = []
+    staging_dir = None
+    try:
+        for path in paths:
+            if path.exists():
+                if staging_dir is None:
+                    staging_dir = Path(tempfile.mkdtemp(prefix="fs_secrets_"))
+                backup = staging_dir / path.name
+                shutil.move(str(path), backup)
+                backups.append((path, backup))
+        if backups:
+            print("Excluding secret files from LittleFS image.")
+        yield
+    finally:
+        for original, backup in reversed(backups):
+            if backup.exists():
+                shutil.move(str(backup), str(original))
+        if staging_dir and staging_dir.exists():
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
 
 def _format_command(parts):
@@ -89,6 +119,8 @@ def get_littlefs_partition_address(env_obj):
 
 def build_littlefs(source, target, env, **_kwargs):
     """Ensure the filesystem image matches the most recent UI assets."""
+    data_dir = Path(env.subst("$PROJECTDATA_DIR"))
+    secret_paths = [data_dir / name for name in SECRET_FILENAMES]
     cmd = [
         env.subst("$PYTHONEXE"),
         "-m",
@@ -100,7 +132,8 @@ def build_littlefs(source, target, env, **_kwargs):
         "buildfs",
         "--disable-auto-clean",
     ]
-    env.Execute(_format_command(cmd))
+    with _temporarily_hide_paths(secret_paths):
+        env.Execute(_format_command(cmd))
 
 
 def merge_bin(source, target, env, **_kwargs):

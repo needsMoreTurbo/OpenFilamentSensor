@@ -11,6 +11,7 @@ Options:
   --env ENV            PlatformIO env to use (default: esp32-s3-dev)
   --skip-npm-install   Skip `npm install` in webui_lite/ (assumes deps already installed)
   --local              Only build Lite UI/filesystem; skip PlatformIO upload steps
+  --ignore-secrets     Do not merge or package data/user_settings.secrets*.json
 """
 
 from __future__ import annotations
@@ -21,7 +22,38 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
+from contextlib import contextmanager
 from typing import List, Optional
+
+SECRET_FILENAMES = (
+    "user_settings.secrets.json",
+    "user_settings.secrets.json.example",
+)
+
+
+@contextmanager
+def temporarily_hide_files(paths: List[str]):
+    """Temporarily move sensitive files out of data/ so LittleFS skips them."""
+    backups = []
+    staging_dir: Optional[str] = None
+    try:
+        for path in paths:
+            if os.path.exists(path):
+                if staging_dir is None:
+                    staging_dir = tempfile.mkdtemp(prefix="fs_secrets_")
+                backup = os.path.join(staging_dir, os.path.basename(path))
+                shutil.move(path, backup)
+                backups.append((path, backup))
+        if backups:
+            print("Excluding secret files from filesystem image for this build.")
+        yield
+    finally:
+        for original, backup in reversed(backups):
+            if os.path.exists(backup):
+                shutil.move(backup, original)
+        if staging_dir and os.path.isdir(staging_dir):
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
 
 def run(cmd: List[str], cwd: Optional[str] = None) -> None:
@@ -60,6 +92,11 @@ def main() -> None:
         action="store_true",
         help="Only build the Lite UI/filesystem; skip PlatformIO upload steps.",
     )
+    parser.add_argument(
+        "--ignore-secrets",
+        action="store_true",
+        help="Skip merging user_settings.secrets.json and omit secrets files from the filesystem image.",
+    )
     args = parser.parse_args()
 
     # Resolve paths relative to this file (tools/ -> repo root)
@@ -68,6 +105,7 @@ def main() -> None:
     webui_lite_dir = os.path.join(repo_root, "webui_lite")
     data_dir = os.path.join(repo_root, "data")
     data_lite_subdir = os.path.join(data_dir, "lite")
+    secret_file_paths = [os.path.join(data_dir, name) for name in SECRET_FILENAMES]
 
     # Ensure a base user_settings.json exists; this file should be safe to commit and can
     # leave SSID/password/IP blank. Per-run secrets are provided via
@@ -119,7 +157,7 @@ def main() -> None:
     # upload, the original file contents are restored so the repo stays clean.
     secrets_path = os.path.join(data_dir, "user_settings.secrets.json")
     base_settings_text: Optional[str] = None
-    if os.path.exists(secrets_path):
+    if not args.ignore_secrets and os.path.exists(secrets_path):
         try:
             with open(settings_path, "r", encoding="utf-8") as f:
                 base_settings_text = f.read()
@@ -144,10 +182,13 @@ def main() -> None:
             json.dump(base_settings, f, indent=2)
             f.write("\n")
         print("Merged secrets into data/user_settings.json for this build (not committed).")
+    elif args.ignore_secrets and os.path.exists(secrets_path):
+        print("Skipping data/user_settings.secrets.json merge (--ignore-secrets).")
 
     # Filesystem upload/build (uses merged settings if present)
     fs_target = "uploadfs" if not args.local else "buildfs"
-    run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
+    with temporarily_hide_files(secret_file_paths):
+        run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
 
     # Restore the original committed user_settings.json so secrets are not left in the
     # working tree. This keeps git status clean and avoids accidental commits.

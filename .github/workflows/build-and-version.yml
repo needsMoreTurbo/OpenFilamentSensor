@@ -68,7 +68,7 @@ jobs:
 
       - name: Build firmware + filesystem for ${{ matrix.env }}
         run: |
-          python tools/build_and_flash.py --env ${{ matrix.env }} --local
+          python tools/build_and_flash.py --env ${{ matrix.env }} --local --ignore-secrets
 
       - name: Collect merged image
         run: |
@@ -76,7 +76,7 @@ jobs:
           mkdir -p artifacts/${{ matrix.env }}
           cp $BUILD_DIR/firmware.bin artifacts/${{ matrix.env }}/firmware.bin
           cp $BUILD_DIR/littlefs.bin artifacts/${{ matrix.env }}/littlefs.bin
-          cp $BUILD_DIR/${{ matrix.env }}_merged.bin artifacts/${{ matrix.env }}/firmware_merged.bin
+          cp $BUILD_DIR/firmware_merged.bin artifacts/${{ matrix.env }}/firmware_merged.bin
 
       - uses: actions/upload-artifact@v4
         with:
