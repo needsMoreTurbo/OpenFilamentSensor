@@ -124,7 +124,7 @@ def ensure_executable(name: str) -> None:
         sys.exit(1)
 
 
-def create_build_timestamp(data_dir: str) -> None:
+def create_build_timestamp(data_dir: str) -> str:
     """Create build_timestamp.txt with format MMDDYYHHMMSS for filesystem identification."""
     now = datetime.utcnow()
     # Format: MMDDYYHHMMSS
@@ -133,6 +133,7 @@ def create_build_timestamp(data_dir: str) -> None:
     with open(timestamp_path, "w", encoding="utf-8") as f:
         f.write(thumbprint)
     print(f"Created filesystem build thumbprint: {thumbprint}")
+    return timestamp_path
 
 
 def main() -> None:
@@ -226,10 +227,11 @@ def main() -> None:
     if args.ignore_secrets:
         print("Skipping data/secrets.json merge (--ignore-secrets).")
 
+    timestamp_path: Optional[str] = None
     try:
         with temporarily_merge_secrets(settings_path, secrets_path, args.ignore_secrets):
             # Create filesystem build timestamp before building filesystem
-            create_build_timestamp(data_dir)
+            timestamp_path = create_build_timestamp(data_dir)
 
             # Filesystem upload/build (uses merged settings if present)
             fs_target = "uploadfs" if not args.local else "buildfs"
@@ -246,6 +248,9 @@ def main() -> None:
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}")
         sys.exit(1)
+    finally:
+        if timestamp_path and os.path.exists(timestamp_path):
+            os.remove(timestamp_path)
 
 
 if __name__ == "__main__":
