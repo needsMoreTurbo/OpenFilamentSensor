@@ -163,7 +163,9 @@ pio device list
 
 ### Settings
 
-Edit `data/user_settings.json` (and provide personal secrets via `data/user_settings.secrets.json`) with your Wi‑Fi SSID, password, and Elegoo printer IP. The build script merges secrets for the filesystem image and restores the original file afterwards.
+Edit `data/user_settings.json` with your Wi-Fi SSID, password, and Elegoo printer IP.
+
+For sensitive credentials, use `data/user_settings.secrets.json` (see `user_settings.secrets.json.example` in the repo root for format). The build script merges secrets into the filesystem image during build and restores the original file afterwards, keeping your secrets out of git.
 
 ## Web UI
 

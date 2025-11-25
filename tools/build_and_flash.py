@@ -28,7 +28,7 @@ from typing import List, Optional
 
 SECRET_FILENAMES = (
     "user_settings.secrets.json",
-    "user_settings.secrets.json.example",
+    # Note: user_settings.secrets.json.example is now in repo root, not data/
 )
 
 
