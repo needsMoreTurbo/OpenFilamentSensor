@@ -464,13 +464,16 @@ void loop()
 
     if (isWifiConnected)
     {
-        if (!isElegooSetup)
+        if (!isElegooSetup && settingsManager.getElegooIP().length() > 0)
         {
             elegooCC.setup();
             logger.log("Elegoo setup complete");
             isElegooSetup = true;
         }
-        elegooCC.loop();
+        if (isElegooSetup)
+        {
+            elegooCC.loop();
+        }
 
         if (!isNtpSetup)
         {
