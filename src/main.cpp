@@ -200,12 +200,9 @@ bool reconnectWifiWithNewCredentials()
 
 void checkWifiConnection()
 {
-    logger.log("Checking WiFi connection");
-
     // Skip check if already in AP mode
     if (settingsManager.isAPMode())
     {
-        logger.log("Skipping WiFi check in AP mode");
         return;
     }
 
@@ -489,6 +486,7 @@ void loop()
     }
     else if (currentTime - lastWifiCheck >= WIFI_CHECK_INTERVAL)
     {
+        lastWifiCheck = currentTime;
         checkWifiConnection();
     }
 

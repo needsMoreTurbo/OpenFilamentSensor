@@ -28,6 +28,7 @@ SettingsManager::SettingsManager()
     settings.has_connected       = false;
     settings.detection_length_mm        = 10.0f;  // DEPRECATED: Use ratio-based detection
     settings.detection_grace_period_ms  = 500;    // 500ms grace period (reduced from 1500ms)
+    settings.detection_min_start_mm     = 12.0f;  // Minimum total extrusion before jam detection
     settings.detection_ratio_threshold  = 0.25f;  // 25% passing threshold (~75% deficit)
     settings.detection_hard_jam_mm      = 5.0f;   // 5mm expected with zero movement = hard jam
     settings.detection_soft_jam_time_ms = 10000;  // 10 seconds to signal slow clog
@@ -41,8 +42,10 @@ SettingsManager::SettingsManager()
     settings.dev_mode                   = false;
     settings.verbose_logging            = false;
     settings.flow_summary_logging       = false;
+    settings.pin_debug_logging          = false;  // Disabled by default
     settings.movement_mm_per_pulse      = 2.88f;  // Actual sensor spec (2.88mm per pulse)
     settings.auto_calibrate_sensor      = false;  // Disabled by default
+    settings.purge_filament_mm          = 47.0f;
 
     // Deprecated settings (for migration)
     settings.expected_deficit_mm      = 0.0f;
@@ -76,9 +79,12 @@ bool SettingsManager::load()
     }
 
     settings.ap_mode             = doc["ap_mode"] | false;
-    settings.ssid                = doc["ssid"] | "";
-    settings.passwd              = doc["passwd"] | "";
-    settings.elegooip            = doc["elegooip"] | "";
+    settings.ssid                = (doc["ssid"] | "");
+    settings.ssid.trim();
+    settings.passwd              = (doc["passwd"] | "");
+    settings.passwd.trim();
+    settings.elegooip            = (doc["elegooip"] | "");
+    settings.elegooip.trim();
     settings.pause_on_runout     = doc["pause_on_runout"] | true;
     settings.enabled             = doc["enabled"] | true;
     settings.start_print_timeout = doc["start_print_timeout"] | 10000;
@@ -118,12 +124,35 @@ bool SettingsManager::load()
     settings.flow_summary_logging = doc.containsKey("flow_summary_logging")
                                         ? doc["flow_summary_logging"].as<bool>()
                                         : false;
+    settings.pin_debug_logging = doc.containsKey("pin_debug_logging")
+                                     ? doc["pin_debug_logging"].as<bool>()
+                                     : false;
     settings.movement_mm_per_pulse = doc.containsKey("movement_mm_per_pulse")
                                          ? doc["movement_mm_per_pulse"].as<float>()
                                          : 2.88f;  // Correct sensor spec
     settings.detection_grace_period_ms = doc.containsKey("detection_grace_period_ms")
                                              ? doc["detection_grace_period_ms"].as<int>()
                                              : 500;  // Default 500ms
+    settings.detection_min_start_mm = 12.0f;
+    if (doc.containsKey("detection_min_start_mm"))
+    {
+        float minStartMm = doc["detection_min_start_mm"].as<float>();
+        if (isnan(minStartMm) || minStartMm < 0.0f || minStartMm > 999.0f)
+        {
+            minStartMm = 12.0f;
+        }
+        settings.detection_min_start_mm = minStartMm;
+    }
+    settings.purge_filament_mm = 47.0f;
+    if (doc.containsKey("purge_filament_mm"))
+    {
+        float purgeMm = doc["purge_filament_mm"].as<float>();
+        if (isnan(purgeMm) || purgeMm < 0.0f || purgeMm > 999.0f)
+        {
+            purgeMm = 47.0f;
+        }
+        settings.purge_filament_mm = purgeMm;
+    }
     settings.tracking_mode = doc.containsKey("tracking_mode")
                                  ? doc["tracking_mode"].as<int>()
                                  : 1;  // Default to Windowed mode
@@ -250,9 +279,19 @@ int SettingsManager::getDetectionGracePeriodMs()
     return getSettings().detection_grace_period_ms;
 }
 
+float SettingsManager::getDetectionMinStartMm()
+{
+    return getSettings().detection_min_start_mm;
+}
+
 float SettingsManager::getDetectionRatioThreshold()
 {
     return getSettings().detection_ratio_threshold;
+}
+
+float SettingsManager::getPurgeFilamentMm()
+{
+    return getSettings().purge_filament_mm;
 }
 
 float SettingsManager::getDetectionHardJamMm()
@@ -318,12 +357,17 @@ bool SettingsManager::getDevMode()
 
 bool SettingsManager::getVerboseLogging()
 {
-    return getSettings().verbose_logging;
+    return getSettings().verbose_logging; // TEMPORARY OVERRIDE - revert to: getSettings().verbose_logging;
 }
 
 bool SettingsManager::getFlowSummaryLogging()
 {
     return getSettings().flow_summary_logging;
+}
+
+bool SettingsManager::getPinDebugLogging()
+{
+    return false; //getSettings().pin_debug_logging; // TEMPORARY OVERRIDE - revert to: getSettings().pin_debug_logging;
 }
 
 float SettingsManager::getMovementMmPerPulse()
@@ -340,9 +384,11 @@ void SettingsManager::setSSID(const String &ssid)
 {
     if (!isLoaded)
         load();
-    if (settings.ssid != ssid)
+    String trimmed = ssid;
+    trimmed.trim();
+    if (settings.ssid != trimmed)
     {
-        settings.ssid = ssid;
+        settings.ssid = trimmed;
         wifiChanged   = true;
     }
 }
@@ -351,9 +397,11 @@ void SettingsManager::setPassword(const String &password)
 {
     if (!isLoaded)
         load();
-    if (settings.passwd != password)
+    String trimmed = password;
+    trimmed.trim();
+    if (settings.passwd != trimmed)
     {
-        settings.passwd = password;
+        settings.passwd = trimmed;
         wifiChanged     = true;
     }
 }
@@ -373,7 +421,9 @@ void SettingsManager::setElegooIP(const String &ip)
 {
     if (!isLoaded)
         load();
-    settings.elegooip = ip;
+    String trimmed = ip;
+    trimmed.trim();
+    settings.elegooip = trimmed;
 }
 
 void SettingsManager::setPauseOnRunout(bool pauseOnRunout)
@@ -417,6 +467,28 @@ void SettingsManager::setDetectionGracePeriodMs(int periodMs)
     if (!isLoaded)
         load();
     settings.detection_grace_period_ms = periodMs;
+}
+
+void SettingsManager::setDetectionMinStartMm(float minMm)
+{
+    if (!isLoaded)
+        load();
+    if (isnan(minMm) || minMm < 0.0f || minMm > 999.0f)
+    {
+        minMm = 12.0f;
+    }
+    settings.detection_min_start_mm = minMm;
+}
+
+void SettingsManager::setPurgeFilamentMm(float purgeMm)
+{
+    if (!isLoaded)
+        load();
+    if (isnan(purgeMm) || purgeMm < 0.0f || purgeMm > 999.0f)
+    {
+        purgeMm = 47.0f;
+    }
+    settings.purge_filament_mm = purgeMm;
 }
 
 void SettingsManager::setDetectionRatioThreshold(float threshold)
@@ -516,6 +588,13 @@ void SettingsManager::setFlowSummaryLogging(bool enabled)
     settings.flow_summary_logging = enabled;
 }
 
+void SettingsManager::setPinDebugLogging(bool enabled)
+{
+    if (!isLoaded)
+        load();
+    settings.pin_debug_logging = enabled;
+}
+
 void SettingsManager::setMovementMmPerPulse(float mmPerPulse)
 {
     if (!isLoaded)
@@ -544,6 +623,8 @@ String SettingsManager::toJson(bool includePassword)
     doc["has_connected"]       = settings.has_connected;
     doc["detection_length_mm"]        = settings.detection_length_mm;  // DEPRECATED
     doc["detection_grace_period_ms"]  = settings.detection_grace_period_ms;
+    doc["detection_min_start_mm"]     = settings.detection_min_start_mm;
+    doc["purge_filament_mm"]          = settings.purge_filament_mm;
     doc["detection_ratio_threshold"]  = settings.detection_ratio_threshold;
     doc["detection_hard_jam_mm"]      = settings.detection_hard_jam_mm;
     doc["detection_soft_jam_time_ms"] = settings.detection_soft_jam_time_ms;
@@ -557,6 +638,7 @@ String SettingsManager::toJson(bool includePassword)
     doc["dev_mode"]                   = settings.dev_mode;
     doc["verbose_logging"]            = settings.verbose_logging;
     doc["flow_summary_logging"]       = settings.flow_summary_logging;
+    doc["pin_debug_logging"]          = settings.pin_debug_logging;
     doc["movement_mm_per_pulse"]      = settings.movement_mm_per_pulse;
     doc["auto_calibrate_sensor"]      = settings.auto_calibrate_sensor;
 

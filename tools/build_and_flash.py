@@ -9,9 +9,9 @@ Usage (run from repo root):
 
 Options:
   --env ENV            PlatformIO env to use (default: esp32-s3-dev)
-  --skip-npm-install   Skip `npm install` in webui_lite/ (assumes deps already installed)
   --local              Only build Lite UI/filesystem; skip PlatformIO upload steps
   --ignore-secrets     Do not merge or package data/secrets.json
+  --build-mode MODE    Build mode: (default) full build with merge, 'nofs' firmware only, 'nobin' filesystem only
 """
 
 from __future__ import annotations
@@ -146,11 +146,6 @@ def main() -> None:
         help="PlatformIO environment to use (default: esp32-s3-dev)",
     )
     parser.add_argument(
-        "--skip-npm-install",
-        action="store_true",
-        help="Skip `npm install` in webui_lite/ (assumes dependencies already installed).",
-    )
-    parser.add_argument(
         "--local",
         action="store_true",
         help="Only build the Lite UI/filesystem; skip PlatformIO upload steps.",
@@ -159,6 +154,12 @@ def main() -> None:
         "--ignore-secrets",
         action="store_true",
         help="Skip merging data/secrets.json and omit secrets files from the filesystem image.",
+    )
+    parser.add_argument(
+        "--build-mode",
+        choices=["nofs", "nobin"],
+        default=None,
+        help="Build mode: 'nofs' = firmware only (no merge), 'nobin' = filesystem only (no merge), default = full build with merge",
     )
     args = parser.parse_args()
 
@@ -192,25 +193,31 @@ def main() -> None:
     ensure_executable(npm_cmd)
     ensure_executable(node_cmd)
 
-    # Always build lightweight webui_lite so data/lite stays in sync
-    print("\n=== Building Lightweight WebUI ===")
-    if not os.path.exists(webui_lite_dir):
-        print(f"WARNING: webui_lite/ directory not found at {webui_lite_dir}")
-        print("Skipping lightweight UI build.")
-    else:
-        if not args.skip_npm_install and os.path.exists(os.path.join(webui_lite_dir, "package.json")):
-            run([npm_cmd, "install"], cwd=webui_lite_dir)
-
-        run([node_cmd, "build.js"], cwd=webui_lite_dir)
-
-        # Ensure staging artifacts land in data/lite/
-        staging_output = os.path.join(repo_root, "data_lite")
-        if os.path.exists(staging_output):
-            shutil.copytree(staging_output, data_lite_subdir, dirs_exist_ok=True)
-            print(f"Lightweight UI deployed to {data_lite_subdir}")
+    # Always build lightweight webui_lite so data/lite stays in sync (unless nofs mode)
+    if args.build_mode != "nofs":
+        print("\n=== Building Lightweight WebUI ===")
+        if not os.path.exists(webui_lite_dir):
+            print(f"WARNING: webui_lite/ directory not found at {webui_lite_dir}")
+            print("Skipping lightweight UI build.")
         else:
-            print(f"WARNING: Build output not found at {staging_output}")
-            print("Lightweight UI build may have failed.")
+            # Auto-detect if npm install is needed
+            node_modules_dir = os.path.join(webui_lite_dir, "node_modules")
+            if not os.path.exists(node_modules_dir):
+                print("node_modules not found, running npm install...")
+                run([npm_cmd, "install"], cwd=webui_lite_dir)
+            else:
+                print("node_modules found, skipping npm install")
+
+            run([node_cmd, "build.js"], cwd=webui_lite_dir)
+
+            # Ensure staging artifacts land in data/lite/
+            staging_output = os.path.join(repo_root, "data_lite")
+            if os.path.exists(staging_output):
+                shutil.copytree(staging_output, data_lite_subdir, dirs_exist_ok=True)
+                print(f"Lightweight UI deployed to {data_lite_subdir}")
+            else:
+                print(f"WARNING: Build output not found at {staging_output}")
+                print("Lightweight UI build may have failed.")
 
     # Flash firmware + filesystem using PlatformIO CLI (pio or platformio)
     pio_cmd = shutil.which("pio") or shutil.which("platformio")
@@ -229,22 +236,49 @@ def main() -> None:
 
     timestamp_path: Optional[str] = None
     try:
-        with temporarily_merge_secrets(settings_path, secrets_path, args.ignore_secrets):
-            # Create filesystem build timestamp before building filesystem
-            timestamp_path = create_build_timestamp(data_dir)
-
-            # Filesystem upload/build (uses merged settings if present)
-            fs_target = "uploadfs" if not args.local else "buildfs"
-            with temporarily_hide_files(secret_file_paths):
-                run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
-
+        # Build mode: nofs = firmware only (no merge)
+        if args.build_mode == "nofs":
+            print("\n=== Build Mode: Firmware Only (no merge) ===")
             if args.local:
                 run([pio_cmd, "run", "-e", args.env], cwd=repo_root)
-                print("\nAll done. Build artifacts are ready in `data/` and `.pio/build`.")
+                print("\nAll done. Firmware binary ready at `.pio/build/{}/firmware.bin`.".format(args.env))
             else:
-                # Firmware upload (will build firmware first if needed)
                 run([pio_cmd, "run", "-e", args.env, "-t", "upload"], cwd=repo_root)
-                print("\nAll done. Firmware and filesystem have been flashed.")
+                print("\nAll done. Firmware has been flashed.")
+
+        # Build mode: nobin = filesystem only (no merge)
+        elif args.build_mode == "nobin":
+            print("\n=== Build Mode: Filesystem Only (no merge) ===")
+            with temporarily_merge_secrets(settings_path, secrets_path, args.ignore_secrets):
+                timestamp_path = create_build_timestamp(data_dir)
+                fs_target = "uploadfs" if not args.local else "buildfs"
+                with temporarily_hide_files(secret_file_paths):
+                    run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
+
+            if args.local:
+                print("\nAll done. Filesystem binary ready at `.pio/build/{}/littlefs.bin`.".format(args.env))
+            else:
+                print("\nAll done. Filesystem has been flashed.")
+
+        # Default mode: full build with merge
+        else:
+            print("\n=== Build Mode: Full Build (with merge) ===")
+            with temporarily_merge_secrets(settings_path, secrets_path, args.ignore_secrets):
+                # Create filesystem build timestamp before building filesystem
+                timestamp_path = create_build_timestamp(data_dir)
+
+                # Filesystem upload/build (uses merged settings if present)
+                fs_target = "uploadfs" if not args.local else "buildfs"
+                with temporarily_hide_files(secret_file_paths):
+                    run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
+
+                if args.local:
+                    run([pio_cmd, "run", "-e", args.env], cwd=repo_root)
+                    print("\nAll done. Build artifacts are ready in `data/` and `.pio/build`.")
+                else:
+                    # Firmware upload (will build firmware first if needed)
+                    run([pio_cmd, "run", "-e", args.env, "-t", "upload"], cwd=repo_root)
+                    print("\nAll done. Firmware and filesystem have been flashed.")
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}")
         sys.exit(1)

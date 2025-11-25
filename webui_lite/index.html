@@ -1518,6 +1518,18 @@
                         <p class="form-help">Time to wait after move command before checking for jams. Default: 500ms.</p>
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Minimum Extrusion Before Checking (mm)</label>
+                        <input type="number" class="form-input" id="detection_min_start_mm" value="${currentSettings.detection_min_start_mm !== undefined ? currentSettings.detection_min_start_mm : 12}" min="0" step="0.5">
+                        <p class="form-help">Jam detection stays disabled until this much commanded extrusion has accumulated. Default: 12mm.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Purge Line Filament (mm)</label>
+                        <input type="number" class="form-input" id="purge_filament_mm" value="${currentSettings.purge_filament_mm !== undefined ? currentSettings.purge_filament_mm : 47}" min="0" step="0.5">
+                        <p class="form-help">Amount of filament consumed by your purge line or start sequence. Jam checks stay off until this plus the minimum extrusion above is reached.</p>
+                    </div>
+
                     <h3 class="section-title">Tracking Algorithm</h3>
 
                     <div class="form-group">
@@ -1648,6 +1660,8 @@
                     enabled: document.getElementById('enabled').checked,
                     detection_length_mm: parseFloat(document.getElementById('detection_length_mm').value),
                     detection_grace_period_ms: parseInt(document.getElementById('detection_grace_period_ms').value),
+                    detection_min_start_mm: parseFloat(document.getElementById('detection_min_start_mm').value),
+                    purge_filament_mm: parseFloat(document.getElementById('purge_filament_mm').value),
                     tracking_mode: parseInt(document.getElementById('tracking_mode').value),
                     tracking_window_ms: parseInt(document.getElementById('tracking_window_ms').value),
                     tracking_ewma_alpha: parseFloat(document.getElementById('tracking_ewma_alpha').value),

@@ -153,6 +153,7 @@ class ElegooCC
     unsigned long       movementPulseCount;
     unsigned long       lastFlowLogMs;
     unsigned long       lastSummaryLogMs;
+    unsigned long       lastPinDebugLogMs;
 
     // Track last logged values to avoid duplicate verbose logs
     float         lastLoggedExpected;

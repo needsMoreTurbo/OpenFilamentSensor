@@ -69,6 +69,7 @@ ElegooCC::ElegooCC()
     movementPulseCount           = 0;
     lastFlowLogMs                = 0;
     lastSummaryLogMs             = 0;
+    lastPinDebugLogMs            = 0;
     lastLoggedExpected           = -1.0f;
     lastLoggedActual             = -1.0f;
     lastLoggedDeficit            = -1.0f;
@@ -737,10 +738,16 @@ void ElegooCC::loop()
 void ElegooCC::checkFilamentRunout(unsigned long currentTime)
 {
     // The signal output of the switch sensor is at low level when no filament is detected
-    bool newFilamentRunout = digitalRead(FILAMENT_RUNOUT_PIN) == LOW;
+    // Some boards/sensors may need inverted logic
+    int pinValue = digitalRead(FILAMENT_RUNOUT_PIN);
+#ifdef INVERT_RUNOUT_PIN
+    pinValue = !pinValue;  // Invert the logic if flag is set
+#endif
+    bool newFilamentRunout = (pinValue == LOW);
+
     if (newFilamentRunout != filamentRunout)
     {
-        logger.log(filamentRunout ? "Filament has run out" : "Filament has been detected");
+        logger.log(newFilamentRunout ? "Filament has run out" : "Filament has been detected");
     }
     filamentRunout = newFilamentRunout;
 }
@@ -751,6 +758,9 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     {
         // When tracking is frozen (printer paused after a jam), just track pin changes
         int currentMovementValue = digitalRead(MOVEMENT_SENSOR_PIN);
+#ifdef INVERT_MOVEMENT_PIN
+        currentMovementValue = !currentMovementValue;  // Invert the logic if flag is set
+#endif
         if (currentMovementValue != lastMovementValue)
         {
             lastMovementValue = currentMovementValue;
@@ -760,16 +770,24 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     }
 
     int  currentMovementValue = digitalRead(MOVEMENT_SENSOR_PIN);
+#ifdef INVERT_MOVEMENT_PIN
+    currentMovementValue = !currentMovementValue;  // Invert the logic if flag is set
+#endif
     bool debugFlow            = settingsManager.getVerboseLogging();
     bool summaryFlow          = settingsManager.getFlowSummaryLogging();
     bool currentlyPrinting    = isPrinting();
+
+    // Count pulses when machine status indicates printing is active, even if printStatus
+    // is in a transitional state (heating, bed leveling, etc). The machine status flag
+    // is more reliable for detecting when filament is actually being extruded.
+    bool shouldCountPulses = hasMachineStatus(SDCP_MACHINE_STATUS_PRINTING);
 
     // Track movement pulses - only count RISING edge (LOW to HIGH transition)
     // This matches typical sensor specs where 2.88mm = one complete pulse cycle
     if (currentMovementValue != lastMovementValue)
     {
         // Only trigger on RISING edge (LOW->HIGH, 0->1)
-        if (currentMovementValue == HIGH && lastMovementValue == LOW && isPrinting())
+        if (currentMovementValue == HIGH && lastMovementValue == LOW && shouldCountPulses)
         {
             float movementMm = settingsManager.getMovementMmPerPulse();
             if (movementMm <= 0.0f)
@@ -782,6 +800,12 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
             actualFilamentMM += movementMm;
             movementPulseCount++;
 
+            // Pin debug logging for pulse detection
+            if (settingsManager.getPinDebugLogging())
+            {
+                logger.log("pulse");
+            }
+
             // Removed per-pulse logging - way too verbose, causes heap exhaustion
             // Pulse count is shown in periodic Flow log instead
         }
@@ -790,12 +814,27 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
         lastChangeTime    = currentTime;
     }
 
+    // Pin debug logging (once per second) - BEFORE early return so it always runs
+    // Shows RAW pin values (before any inversion)
+    bool pinDebug = settingsManager.getPinDebugLogging();
+    if (pinDebug && (currentTime - lastPinDebugLogMs) >= 1000)
+    {
+        lastPinDebugLogMs = currentTime;
+        int runoutPinValue = digitalRead(FILAMENT_RUNOUT_PIN);
+        int movementPinValue = digitalRead(MOVEMENT_SENSOR_PIN);
+        logger.logf("PIN: R%d=%d M%d=%d p=%lu",
+                    FILAMENT_RUNOUT_PIN, runoutPinValue,
+                    MOVEMENT_SENSOR_PIN, movementPinValue,
+                    movementPulseCount);
+    }
+
     // Only run jam detection when actively printing with valid telemetry
+    // Use machine status (not printStatus) since extrusion can happen during heating/leveling
     // This prevents false "jammed" state when idle with stale telemetry data
-    if (!currentlyPrinting || !expectedTelemetryAvailable)
+    if (!shouldCountPulses || !expectedTelemetryAvailable)
     {
         // Reset jam state when not printing to clear any stale detection
-        if (!currentlyPrinting)
+        if (!shouldCountPulses)
         {
             filamentStopped = false;
             resumeGraceActive = false;
@@ -872,6 +911,17 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     unsigned long gracePeriod = settingsManager.getDetectionGracePeriodMs();
     bool baseGraceActive = (gracePeriod > 0) && motionSensor.isWithinGracePeriod(gracePeriod);
     bool withinGrace = baseGraceActive || resumeGraceActive;
+
+    float minExtrusionBeforeDetect =
+        settingsManager.getDetectionMinStartMm() + settingsManager.getPurgeFilamentMm();
+    if (minExtrusionBeforeDetect < 0.0f)
+    {
+        minExtrusionBeforeDetect = 0.0f;
+    }
+    if (expectedFilamentMM < minExtrusionBeforeDetect)
+    {
+        withinGrace = true;
+    }
 
     unsigned long elapsedMs;
     if (lastJamEvalMs == 0)
