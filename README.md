@@ -29,6 +29,10 @@ webui_lite/          # Single-page Lite UI source
 
 ## Quick start
 
+### Option A: Standard Build (recommended for experienced users)
+
+Requires: Python 3.10+, Node.js 18+, PlatformIO Core
+
 ```bash
 # Build Lite UI + firmware and flash via USB
 python tools/build_and_flash.py
@@ -41,6 +45,120 @@ python tools/build_and_flash.py --env <board>
 
 # Reuse existing node_modules when rebuilding the UI
 python tools/build_and_flash.py --skip-npm-install
+```
+
+### Option B: Portable Environment (no global dependencies)
+
+Requires: Only Python 3.10+ and Node.js 18+
+
+This creates an isolated build environment in `tools/.venv/` and `tools/.platformio/` without modifying your global Python or PlatformIO installations.
+
+```bash
+# One-time setup (installs PlatformIO and ESP32 toolchain locally)
+python tools/setup_local_env.py
+
+# Build firmware using the portable environment
+python tools/build_local.py
+
+# Target another board
+python tools/build_local.py --env seeed_xiao_esp32c3-dev
+```
+
+### Option C: Quick Start Scripts
+
+```bash
+# Windows
+quick-start.bat
+
+# Linux/Mac
+./quick-start.sh
+```
+
+These scripts verify your environment and guide you through the build process.
+
+## Troubleshooting
+
+### Check Your Environment
+
+Before building, verify all dependencies are installed:
+
+```bash
+python tools/check_environment.py
+```
+
+This checks for:
+- Python 3.10+
+- Node.js 18+
+- npm
+- PlatformIO Core
+- ESP32 platform
+- ESP32 toolchain integrity
+
+### Build Fails: "FreeRTOS.h: No such file or directory"
+
+**Cause:** Corrupted or incomplete ESP32 platform installation in PlatformIO.
+
+**Solutions (try in order):**
+
+1. Clean and reinstall ESP32 platform:
+   ```bash
+   pio run --target clean
+   pio platform uninstall espressif32
+   pio platform install espressif32
+   python tools/build_and_flash.py
+   ```
+
+2. Clear global PlatformIO cache (nuclear option):
+   ```bash
+   # Windows
+   rmdir /s /q "%USERPROFILE%\.platformio"
+
+   # Linux/Mac
+   rm -rf ~/.platformio
+
+   # Then rebuild (PlatformIO will reinstall everything)
+   python tools/build_and_flash.py
+   ```
+
+3. Use the portable environment to avoid global state issues:
+   ```bash
+   python tools/setup_local_env.py
+   python tools/build_local.py
+   ```
+
+### Missing Dependencies
+
+If you're missing Python, Node.js, npm, or PlatformIO:
+
+**Python 3.10+:**
+- Download: https://www.python.org/downloads/
+- Ubuntu/Debian: `sudo apt install python3 python3-pip python3-venv`
+- macOS: `brew install python3`
+
+**Node.js 18+ (includes npm):**
+- Download: https://nodejs.org/ (LTS version recommended)
+- Ubuntu/Debian: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install nodejs`
+- macOS: `brew install node`
+
+**PlatformIO Core:**
+```bash
+pip install platformio
+
+# Or use the portable environment
+python tools/setup_local_env.py
+```
+
+### Build Succeeds but Upload Fails
+
+**Check USB connection:**
+- Ensure ESP32 board is connected via USB
+- Check that drivers are installed (especially on Windows)
+- Try a different USB cable (data cable, not charge-only)
+
+**Find the correct port:**
+```bash
+# List available serial ports
+pio device list
 ```
 
 ### Settings
