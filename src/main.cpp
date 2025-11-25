@@ -110,7 +110,7 @@ void handleSuccessfulWifiConnection()
 
     // Start/restart mDNS for station mode
     MDNS.end();
-    if (!MDNS.begin("ccxsfs20"))
+    if (!MDNS.begin("centaurifilament"))
     {
         logger.log("Error setting up MDNS responder!");
     }

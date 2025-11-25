@@ -17,6 +17,7 @@ Options:
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -26,9 +27,10 @@ import tempfile
 from contextlib import contextmanager
 from typing import List, Optional
 
-SECRET_FILENAMES = (
+SECRET_FILE_PATTERNS = (
     "user_settings.secrets.json",
-    # Note: user_settings.secrets.json.example is now in repo root, not data/
+    "user_settings.secrets.json.example",
+    "user_settings.secrets*.json",
 )
 
 
@@ -105,7 +107,10 @@ def main() -> None:
     webui_lite_dir = os.path.join(repo_root, "webui_lite")
     data_dir = os.path.join(repo_root, "data")
     data_lite_subdir = os.path.join(data_dir, "lite")
-    secret_file_paths = [os.path.join(data_dir, name) for name in SECRET_FILENAMES]
+    secret_file_paths: List[str] = []
+    for pattern in SECRET_FILE_PATTERNS:
+        secret_file_paths.extend(glob.glob(os.path.join(data_dir, pattern)))
+    secret_file_paths = sorted(set(secret_file_paths))
 
     # Ensure a base user_settings.json exists; this file should be safe to commit and can
     # leave SSID/password/IP blank. Per-run secrets are provided via
@@ -185,25 +190,26 @@ def main() -> None:
     elif args.ignore_secrets and os.path.exists(secrets_path):
         print("Skipping data/user_settings.secrets.json merge (--ignore-secrets).")
 
-    # Filesystem upload/build (uses merged settings if present)
-    fs_target = "uploadfs" if not args.local else "buildfs"
-    with temporarily_hide_files(secret_file_paths):
-        run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
+    try:
+        # Filesystem upload/build (uses merged settings if present)
+        fs_target = "uploadfs" if not args.local else "buildfs"
+        with temporarily_hide_files(secret_file_paths):
+            run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
 
-    # Restore the original committed user_settings.json so secrets are not left in the
-    # working tree. This keeps git status clean and avoids accidental commits.
-    if base_settings_text is not None:
-        with open(settings_path, "w", encoding="utf-8") as f:
-            f.write(base_settings_text)
-        print("Restored original data/user_settings.json after filesystem upload.")
-
-    if args.local:
-        run([pio_cmd, "run", "-e", args.env], cwd=repo_root)
-        print("\nAll done. Build artifacts are ready in `data/` and `.pio/build`.")
-    else:
-        # Firmware upload (will build firmware first if needed)
-        run([pio_cmd, "run", "-e", args.env, "-t", "upload"], cwd=repo_root)
-        print("\nAll done. Firmware and filesystem have been flashed.")
+        if args.local:
+            run([pio_cmd, "run", "-e", args.env], cwd=repo_root)
+            print("\nAll done. Build artifacts are ready in `data/` and `.pio/build`.")
+        else:
+            # Firmware upload (will build firmware first if needed)
+            run([pio_cmd, "run", "-e", args.env, "-t", "upload"], cwd=repo_root)
+            print("\nAll done. Firmware and filesystem have been flashed.")
+    finally:
+        # Restore the original committed user_settings.json so secrets are not left in the
+        # working tree. This keeps git status clean and avoids accidental commits.
+        if base_settings_text is not None:
+            with open(settings_path, "w", encoding="utf-8") as f:
+                f.write(base_settings_text)
+            print("Restored original data/user_settings.json after filesystem upload.")
 
 
 if __name__ == "__main__":
