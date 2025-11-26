@@ -57,7 +57,7 @@ uint8_t x_position = 0;
 // Variables to track NTP synchronization
 unsigned long lastNTPSyncAttempt = 0;
 
-// If wifi fails, revert to AP mode and restart (only if never connected before);
+// If wifi fails, revert to AP mode (only if never connected before)
 void failWifi()
 {
     // Only revert to AP mode if WiFi has never successfully connected
@@ -67,14 +67,15 @@ void failWifi()
         if (settingsManager.save())
         {
             logger.log("Failed to connect to wifi, reverted to AP mode (first connection attempt)");
+            logger.log("Please manually restart device to enter AP mode, or use Improv WiFi serial setup");
         }
         else
         {
             logger.log("Failed to update settings");
         }
 
-        delay(1000);  // Give time for serial output
-        ESP.restart();
+        // Don't restart - let system continue in current state
+        // User can manually restart or use Improv WiFi to configure
     }
     else
     {
@@ -126,12 +127,19 @@ bool connectToWifiStation(bool isReconnect = false)
 
     WiFi.begin(settingsManager.getSSID().c_str(), settingsManager.getPassword().c_str());
 
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 30)
+    // Use time-based timeout instead of attempt count (reduced from 30s to 15s)
+    unsigned long startTime = millis();
+    const unsigned long CONNECT_TIMEOUT_MS = 15000;  // 15 seconds
+
+    while (WiFi.status() != WL_CONNECTED && (millis() - startTime) < CONNECT_TIMEOUT_MS)
     {
         Serial.print('.');
-        delay(1000);
-        attempts++;
+
+        // Use vTaskDelay instead of delay for better multi-tasking
+        vTaskDelay(pdMS_TO_TICKS(500));  // 500ms, allows other tasks to run
+
+        // Allow WiFi stack to process
+        yield();
     }
 
     Serial.println();
@@ -427,13 +435,29 @@ bool handleImprovWifi()
 
 void loop()
 {
-    // handling immprovWifi should be the first thing we do
+    static unsigned long lastNonSerialRun = 0;
+    static unsigned long lastYield = 0;
+    unsigned long currentTime = millis();
+
+    // Handle serial, but enforce rate limiting to prevent system starvation
     if (handleImprovWifi())
     {
-        // if we handled serial data, don't return so we don't bother with the rest of the setup
-        return;
+        // Always yield to WiFi/system tasks
+        if (currentTime - lastYield >= 10)  // Every 10ms minimum
+        {
+            yield();  // Let WiFi stack process
+            lastYield = currentTime;
+        }
+
+        // Force full loop execution every 100ms even if serial is busy
+        if (currentTime - lastNonSerialRun < 100)
+        {
+            return;  // Can skip non-serial tasks for up to 100ms
+        }
+        // Fall through to run rest of loop
     }
-    unsigned long currentTime     = millis();
+
+    lastNonSerialRun = currentTime;
     bool          isWifiConnected = !settingsManager.isAPMode() && WiFi.status() == WL_CONNECTED;
 
     if (!isWifiSetup)
@@ -505,6 +529,33 @@ void loop()
     {
         lastWifiCheck = currentTime;
         checkWifiConnection();
+    }
+
+    // Heap fragmentation monitoring (every 60 seconds)
+    static unsigned long lastHeapCheck = 0;
+    if (currentTime - lastHeapCheck > 60000)
+    {
+        lastHeapCheck = currentTime;
+
+        uint32_t freeHeap = ESP.getFreeHeap();
+        uint32_t minHeap = ESP.getMinFreeHeap();
+        uint32_t maxAlloc = ESP.getMaxAllocHeap();
+
+        // Calculate fragmentation: if maxAlloc << freeHeap, heap is fragmented
+        float fragmentation = 100.0f * (1.0f - ((float)maxAlloc / (float)freeHeap));
+
+        logger.logf(LOG_DEBUG, "Heap: free=%lu min=%lu maxAlloc=%lu frag=%.1f%%",
+                   freeHeap, minHeap, maxAlloc, fragmentation);
+
+        if (fragmentation > 30.0f)
+        {
+            logger.log(F("WARNING: Heap fragmentation high!"), LOG_NORMAL);
+        }
+
+        if (minHeap < 20000)
+        {
+            logger.logf(LOG_NORMAL, "CRITICAL: Low memory! Min heap: %lu", minHeap);
+        }
     }
 
     webServer.loop();

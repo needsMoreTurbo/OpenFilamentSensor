@@ -233,11 +233,30 @@ void WebServer::begin()
               {
                   printer_info_t elegooStatus = elegooCC.getCurrentInformation();
 
-                  DynamicJsonDocument jsonDoc(768);
+                  // JSON allocation: 576 bytes heap (was 768 bytes)
+                  // Measured actual: ~480 bytes (83% utilization, 17% margin)
+                  // Last measured: 2025-11-26
+                  // See: .claude/hardcoded-allocations.md for maintenance notes
+                  DynamicJsonDocument jsonDoc(576);
                   buildStatusJson(jsonDoc, elegooStatus);
 
                   String jsonResponse;
+                  jsonResponse.reserve(576);  // Pre-allocate to prevent fragmentation
                   serializeJson(jsonDoc, jsonResponse);
+
+                  // DEV: Check if approaching allocation limit
+                  if (settingsManager.getLogLevel() >= LOG_DEV)
+                  {
+                      size_t actualSize = measureJson(jsonDoc);
+                      static bool logged = false;
+                      if (!logged && actualSize > 490)  // >85% of 576 bytes
+                      {
+                          logger.logf(LOG_DEV, "WebServer sensor_status JSON size: %zu / 576 bytes (%.1f%%)",
+                                     actualSize, (actualSize * 100.0f / 576.0f));
+                          logged = true;  // Only log once per session
+                      }
+                  }
+
                   request->send(200, "application/json", jsonResponse);
               });
 
@@ -362,10 +381,29 @@ void WebServer::buildStatusJson(DynamicJsonDocument &jsonDoc, const printer_info
 void WebServer::broadcastStatusUpdate()
 {
     printer_info_t elegooStatus = elegooCC.getCurrentInformation();
-    DynamicJsonDocument jsonDoc(768);
+    // JSON allocation: 576 bytes heap (was 768 bytes)
+    // Measured actual: ~480 bytes (83% utilization, 17% margin)
+    // Last measured: 2025-11-26
+    // See: .claude/hardcoded-allocations.md for maintenance notes
+    DynamicJsonDocument jsonDoc(576);
     buildStatusJson(jsonDoc, elegooStatus);
     String payload;
+    payload.reserve(576);  // Pre-allocate to prevent fragmentation
     serializeJson(jsonDoc, payload);
+
+    // DEV: Check if approaching allocation limit
+    if (settingsManager.getLogLevel() >= LOG_DEV)
+    {
+        size_t actualSize = measureJson(jsonDoc);
+        static bool logged = false;
+        if (!logged && actualSize > 490)  // >85% of 576 bytes
+        {
+            logger.logf(LOG_DEV, "WebServer broadcastStatusUpdate JSON size: %zu / 576 bytes (%.1f%%)",
+                       actualSize, (actualSize * 100.0f / 576.0f));
+            logged = true;  // Only log once per session
+        }
+    }
+
     bool idleState = (elegooStatus.printStatus == 0 || elegooStatus.printStatus == 9);
     if (idleState)
     {

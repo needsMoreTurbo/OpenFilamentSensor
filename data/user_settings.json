@@ -4,7 +4,6 @@
   "elegooip": "twentycharactrstring",
   "ap_mode": false,
   "has_connected": false,
-  "detection_length_mm": 12.0,
   "movement_mm_per_pulse": 3.015,
   "detection_grace_period_ms": 8000,
   "detection_min_start_mm": 12,
@@ -20,11 +19,8 @@
   "pause_on_runout": true,
   "enabled": true,
   "auto_calibrate_sensor": false,
-  "dev_mode": true,
-  "verbose_logging": true,
-  "flow_summary_logging": false,
+  "log_level": 2,
   "sdcp_loss_behavior": 2,
   "flow_telemetry_stale_ms": 1500,
-  "ui_refresh_interval_ms": 1000,
-  "pin_debug_logging": false
+  "ui_refresh_interval_ms": 1000
 }

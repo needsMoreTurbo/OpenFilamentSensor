@@ -68,7 +68,11 @@ bool SettingsManager::load()
         return false;
     }
 
-    StaticJsonDocument<1024> doc;
+    // JSON allocation: 1536 bytes stack (increased from 800 for expanded settings)
+    // With 28+ fields, ArduinoJson needs ~900-1200 bytes
+    // Last measured: 2025-11-26
+    // See: .claude/hardcoded-allocations.md for maintenance notes
+    StaticJsonDocument<1536> doc;
     DeserializationError     error = deserializeJson(doc, file);
     file.close();
 
@@ -695,7 +699,12 @@ void SettingsManager::setAutoCalibrateSensor(bool autoCal)
 String SettingsManager::toJson(bool includePassword)
 {
     String                   output;
-    StaticJsonDocument<1024> doc;
+    output.reserve(1536);  // Pre-allocate to prevent fragmentation
+    // JSON allocation: 1536 bytes stack (increased from 800 for expanded settings)
+    // With 28+ fields, ArduinoJson needs ~900-1200 bytes
+    // Last measured: 2025-11-26
+    // See: .claude/hardcoded-allocations.md for maintenance notes
+    StaticJsonDocument<1536> doc;
 
     doc["ap_mode"]             = settings.ap_mode;
     doc["ssid"]                = settings.ssid;
@@ -704,7 +713,6 @@ String SettingsManager::toJson(bool includePassword)
     doc["start_print_timeout"] = settings.start_print_timeout;
     doc["enabled"]             = settings.enabled;
     doc["has_connected"]       = settings.has_connected;
-    doc["detection_length_mm"]        = settings.detection_length_mm;  // DEPRECATED
     doc["detection_grace_period_ms"]  = settings.detection_grace_period_ms;
     doc["detection_min_start_mm"]     = settings.detection_min_start_mm;
     doc["purge_filament_mm"]          = settings.purge_filament_mm;
@@ -718,11 +726,7 @@ String SettingsManager::toJson(bool includePassword)
     doc["sdcp_loss_behavior"]         = settings.sdcp_loss_behavior;
     doc["flow_telemetry_stale_ms"]    = settings.flow_telemetry_stale_ms;
     doc["ui_refresh_interval_ms"]     = settings.ui_refresh_interval_ms;
-    doc["log_level"]                  = settings.log_level;  // New unified logging level
-    doc["dev_mode"]                   = settings.dev_mode;   // DEPRECATED: Kept for compatibility
-    doc["verbose_logging"]            = settings.verbose_logging;  // DEPRECATED
-    doc["flow_summary_logging"]       = settings.flow_summary_logging;  // DEPRECATED
-    doc["pin_debug_logging"]          = settings.pin_debug_logging;  // DEPRECATED
+    doc["log_level"]                  = settings.log_level;  // Unified logging level
     doc["movement_mm_per_pulse"]      = settings.movement_mm_per_pulse;
     doc["auto_calibrate_sensor"]      = settings.auto_calibrate_sensor;
 
@@ -732,5 +736,17 @@ String SettingsManager::toJson(bool includePassword)
     }
 
     serializeJson(doc, output);
+
+    // DEV: Check if approaching allocation limit
+    if (getLogLevel() >= LOG_DEV)
+    {
+        size_t actualSize = measureJson(doc);
+        if (actualSize > 1305)  // >85% of 1536 bytes
+        {
+            logger.logf(LOG_DEV, "SettingsManager toJson size: %zu / 1536 bytes (%.1f%%)",
+                       actualSize, (actualSize * 100.0f / 1536.0f));
+        }
+    }
+
     return output;
 }

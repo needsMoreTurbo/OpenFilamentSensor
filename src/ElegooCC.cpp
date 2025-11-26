@@ -127,12 +127,16 @@ void ElegooCC::webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
             break;
         case WStype_TEXT:
         {
-            StaticJsonDocument<2048> doc;
-            DeserializationError     error = deserializeJson(doc, payload);
+            // JSON allocation: 1200 bytes heap (was 2048 stack)
+            // Measured actual: ~1100 bytes (91% utilization)
+            // Last measured: 2025-11-26
+            // See: .claude/hardcoded-allocations.md for maintenance notes
+            DynamicJsonDocument doc(1200);
+            DeserializationError error = deserializeJson(doc, payload);
 
             if (error)
             {
-                logger.logf("JSON parsing failed: %s", error.c_str());
+                logger.logf("JSON parsing failed: %s (payload size: %zu)", error.c_str(), length);
                 return;
             }
 
@@ -584,7 +588,11 @@ void ElegooCC::sendCommand(int command, bool waitForAck)
     // Get current timestamp
     unsigned long timestamp = getTime();
 
-    StaticJsonDocument<512> doc;
+    // JSON allocation: 384 bytes stack (was 512 bytes)
+    // Measured actual: ~280 bytes (73% utilization, 27% margin)
+    // Last measured: 2025-11-26
+    // See: .claude/hardcoded-allocations.md for maintenance notes
+    StaticJsonDocument<384> doc;
     doc["Id"] = uuidStr;
     JsonObject data = doc.createNestedObject("Data");
     data["Cmd"]     = command;
@@ -619,7 +627,19 @@ void ElegooCC::sendCommand(int command, bool waitForAck)
     }
 
     String jsonPayload;
+    jsonPayload.reserve(384);  // Pre-allocate to prevent fragmentation
     serializeJson(doc, jsonPayload);
+
+    // DEV: Check if approaching allocation limit
+    if (settingsManager.getLogLevel() >= LOG_DEV)
+    {
+        size_t actualSize = measureJson(doc);
+        if (actualSize > 326)  // >85% of 384 bytes
+        {
+            logger.logf(LOG_DEV, "ElegooCC sendCommand JSON size: %zu / 384 bytes (%.1f%%)",
+                       actualSize, (actualSize * 100.0f / 384.0f));
+        }
+    }
 
     // If this command requires an ack, set the tracking state
     if (waitForAck)
