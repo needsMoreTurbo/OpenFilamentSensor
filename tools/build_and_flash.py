@@ -97,14 +97,14 @@ def temporarily_merge_secrets(settings_path: str, secrets_path: str, ignore: boo
     with open(settings_path, "w", encoding="utf-8") as f:
         json.dump(base_settings, f, indent=2)
         f.write("\n")
-    print("Merged secrets into data/user_settings.json for this build (not committed).")
+    print("Merged secrets into data/user_settings.json for this build.")
 
     try:
         yield True
     finally:
         with open(settings_path, "w", encoding="utf-8") as f:
             f.write(original_text)
-        print("Restored original data/user_settings.json after build.")
+        print("Restored original data/user_settings.json without secrets after build.")
 
 
 def run(cmd: List[str], cwd: Optional[str] = None) -> None:

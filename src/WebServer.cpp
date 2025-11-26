@@ -290,6 +290,9 @@ void WebServer::begin()
     // Keep explicit /lite path for backwards compatibility
     server.serveStatic("/lite", SPIFFS, "/lite/").setDefaultFile("index.htm");
 
+    // Serve favicon explicitly because the root static handler only matches "/".
+    server.serveStatic("/favicon.ico", SPIFFS, "/lite/favicon.ico");
+
     // Always serve the lightweight UI at the root as well.
     server.serveStatic("/", SPIFFS, "/lite/").setDefaultFile("index.htm");
 
