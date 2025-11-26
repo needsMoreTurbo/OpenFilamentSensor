@@ -1603,19 +1603,22 @@
                         <label class="form-label" for="auto_calibrate_sensor" style="margin: 0;">Auto-calibrate sensor at print end</label>
                     </div>
 
+                    <h3 class="section-title">Logging Settings</h3>
+
+                    <div class="form-group">
+                        <label class="form-label">Log Level</label>
+                        <select class="form-select" id="log_level">
+                            <option value="0" ${(currentSettings.log_level === 0 || currentSettings.log_level === undefined) ? 'selected' : ''}>Normal (Production)</option>
+                            <option value="1" ${currentSettings.log_level == 1 ? 'selected' : ''}>Debug (Periodic stats)</option>
+                            <option value="2" ${currentSettings.log_level == 2 ? 'selected' : ''}>Verbose (Detailed info)</option>
+                            <option value="3" ${currentSettings.log_level == 3 ? 'selected' : ''}>Dev (Maximum verbosity)</option>
+                        </select>
+                        <p class="form-help">Normal = minimal logging. Debug = periodic flow stats. Verbose = detailed telemetry. Dev = per-pulse logging (very chatty).</p>
+                    </div>
+
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="dev_mode" ${currentSettings.dev_mode ? 'checked' : ''}>
                         <label class="form-label" for="dev_mode" style="margin: 0;">Developer Mode (suppress pause commands)</label>
-                    </div>
-
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="verbose_logging" ${currentSettings.verbose_logging ? 'checked' : ''}>
-                        <label class="form-label" for="verbose_logging" style="margin: 0;">Verbose flow logging</label>
-                    </div>
-
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="flow_summary_logging" ${currentSettings.flow_summary_logging ? 'checked' : ''}>
-                        <label class="form-label" for="flow_summary_logging" style="margin: 0;">Flow summary logging (1 line/sec)</label>
                     </div>
 
                     <div class="form-group">
@@ -1673,9 +1676,8 @@
                     sdcp_loss_behavior: parseInt(document.getElementById('sdcp_loss_behavior').value),
                     flow_telemetry_stale_ms: parseInt(document.getElementById('flow_telemetry_stale_ms').value),
                     ui_refresh_interval_ms: parseInt(document.getElementById('ui_refresh_interval_ms').value),
+                    log_level: parseInt(document.getElementById('log_level').value),
                     dev_mode: document.getElementById('dev_mode').checked,
-                    verbose_logging: document.getElementById('verbose_logging').checked,
-                    flow_summary_logging: document.getElementById('flow_summary_logging').checked,
                     movement_mm_per_pulse: parseFloat(document.getElementById('movement_mm_per_pulse').value),
                     auto_calibrate_sensor: document.getElementById('auto_calibrate_sensor').checked,
                 };
@@ -1820,10 +1822,10 @@
                 const data = await response.json();
 
                 document.getElementById('firmwareVersion').textContent = data.firmware_version || 'Unknown';
-                const buildInfo = data.build_date ? `${data.build_date} ${data.build_time || ''}`.trim() : 'Unknown';
-                document.getElementById('buildDate').textContent = buildInfo;
-                document.getElementById('firmwareThumbprint').textContent = data.firmware_thumbprint || 'Unknown';
-                document.getElementById('filesystemThumbprint').textContent = data.filesystem_thumbprint || 'Unknown';
+                // Format both build date and thumbprints nicely
+                document.getElementById('buildDate').textContent = formatThumbprint(data.firmware_thumbprint);
+                document.getElementById('firmwareThumbprint').textContent = formatThumbprint(data.firmware_thumbprint);
+                document.getElementById('filesystemThumbprint').textContent = formatThumbprint(data.filesystem_thumbprint);
 
                 const statusResponse = await fetch('/sensor_status');
                 const statusData = await statusResponse.json();
@@ -1845,6 +1847,19 @@
             const sizes = ['B', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Format thumbprint from MMDDYYHHMMSS to MM.DD.YY-HH:MM
+        function formatThumbprint(thumbprint) {
+            if (!thumbprint || thumbprint === 'unknown' || thumbprint.length !== 12) {
+                return thumbprint || 'Unknown';
+            }
+            const mm = thumbprint.substring(0, 2);
+            const dd = thumbprint.substring(2, 4);
+            const yy = thumbprint.substring(4, 6);
+            const hh = thumbprint.substring(6, 8);
+            const min = thumbprint.substring(8, 10);
+            return `${mm}.${dd}.${yy}-${hh}:${min}`;
         }
 
         // Initialize

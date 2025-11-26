@@ -541,12 +541,18 @@ void ElegooCC::pausePrint()
     if (settingsManager.getDevMode())
     {
         lastPauseRequestMs = millis();
-        logger.log("Dev mode is enabled: pausePrint suppressed (would send pause command)");
+        logger.logf("Pause command suppressed: dev mode enabled");
+        return;
+    }
+    if (!webSocket.isConnected())
+    {
+        logger.logf("Pause command suppressed: printer websocket not connected");
         return;
     }
     jamPauseRequested   = true;
     trackingFrozen      = false;
     lastPauseRequestMs = millis();
+    logger.logf("Pause command sent to printer");
     sendCommand(SDCP_COMMAND_PAUSE_PRINT, true);
 }
 
@@ -1073,8 +1079,17 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     // Jam state change detection and logging
     if (jammed && !filamentStopped)
     {
-        logger.logf("Filament jam detected! Expected %.2fmm, sensor %.2fmm, deficit %.2fmm ratio=%.2f (thr=%.2f)",
-                    expectedDistance, actualDistance,
+        const char *jamType = "soft";
+        if (hardJamTriggered && softJamTriggered)
+        {
+            jamType = "hard+soft";
+        }
+        else if (hardJamTriggered)
+        {
+            jamType = "hard";
+        }
+        logger.logf("Filament jam detected (%s)! Expected %.2fmm, sensor %.2fmm, deficit %.2fmm ratio=%.2f (thr=%.2f)",
+                    jamType, expectedDistance, actualDistance,
                     deficit, deficitRatioValue, ratioThreshold);
     }
     else if (!jammed && filamentStopped)

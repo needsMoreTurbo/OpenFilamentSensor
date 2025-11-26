@@ -39,10 +39,11 @@ SettingsManager::SettingsManager()
     settings.sdcp_loss_behavior         = 2;
     settings.flow_telemetry_stale_ms    = 1000;
     settings.ui_refresh_interval_ms     = 1000;
-    settings.dev_mode                   = false;
-    settings.verbose_logging            = false;
-    settings.flow_summary_logging       = false;
-    settings.pin_debug_logging          = false;  // Disabled by default
+    settings.log_level                  = 0;      // Default to Normal logging
+    settings.dev_mode                   = false;  // DEPRECATED: Kept for backwards compatibility
+    settings.verbose_logging            = false;  // DEPRECATED: Kept for backwards compatibility
+    settings.flow_summary_logging       = false;  // DEPRECATED: Kept for backwards compatibility
+    settings.pin_debug_logging          = false;  // DEPRECATED: Kept for backwards compatibility
     settings.movement_mm_per_pulse      = 2.88f;  // Actual sensor spec (2.88mm per pulse)
     settings.auto_calibrate_sensor      = false;  // Disabled by default
     settings.purge_filament_mm          = 47.0f;
@@ -116,17 +117,50 @@ bool SettingsManager::load()
         doc.containsKey("ui_refresh_interval_ms")
             ? doc["ui_refresh_interval_ms"].as<int>()
             : 1000;
-    settings.dev_mode =
-        doc.containsKey("dev_mode") ? doc["dev_mode"].as<bool>() : false;
-    settings.verbose_logging = doc.containsKey("verbose_logging")
-                                   ? doc["verbose_logging"].as<bool>()
-                                   : false;
-    settings.flow_summary_logging = doc.containsKey("flow_summary_logging")
-                                        ? doc["flow_summary_logging"].as<bool>()
-                                        : false;
-    settings.pin_debug_logging = doc.containsKey("pin_debug_logging")
-                                     ? doc["pin_debug_logging"].as<bool>()
-                                     : false;
+
+    // Load log_level with migration from old boolean fields
+    if (doc.containsKey("log_level"))
+    {
+        settings.log_level = doc["log_level"].as<int>();
+        // Clamp to valid range
+        if (settings.log_level < 0) settings.log_level = 0;
+        if (settings.log_level > 3) settings.log_level = 3;
+    }
+    else
+    {
+        // Migrate from old boolean fields
+        bool dev_mode = doc.containsKey("dev_mode") ? doc["dev_mode"].as<bool>() : false;
+        bool pin_debug = doc.containsKey("pin_debug_logging") ? doc["pin_debug_logging"].as<bool>() : false;
+        bool verbose = doc.containsKey("verbose_logging") ? doc["verbose_logging"].as<bool>() : false;
+        bool flow_summary = doc.containsKey("flow_summary_logging") ? doc["flow_summary_logging"].as<bool>() : false;
+
+        // Determine log level from old boolean flags (highest priority wins)
+        if (dev_mode || pin_debug)
+        {
+            settings.log_level = 3;  // Dev level
+            logger.log("Migrated dev_mode/pin_debug_logging to log_level=3 (Dev)");
+        }
+        else if (verbose)
+        {
+            settings.log_level = 2;  // Verbose level
+            logger.log("Migrated verbose_logging to log_level=2 (Verbose)");
+        }
+        else if (flow_summary)
+        {
+            settings.log_level = 1;  // Debug level
+            logger.log("Migrated flow_summary_logging to log_level=1 (Debug)");
+        }
+        else
+        {
+            settings.log_level = 0;  // Normal level
+        }
+    }
+
+    // Keep deprecated fields in sync for backwards compatibility
+    settings.dev_mode = (settings.log_level >= 3);
+    settings.verbose_logging = (settings.log_level >= 2);
+    settings.flow_summary_logging = (settings.log_level >= 1);
+    settings.pin_debug_logging = (settings.log_level >= 3);
     settings.movement_mm_per_pulse = doc.containsKey("movement_mm_per_pulse")
                                          ? doc["movement_mm_per_pulse"].as<float>()
                                          : 2.88f;  // Correct sensor spec
@@ -186,6 +220,9 @@ bool SettingsManager::load()
     settings.total_vs_delta_logging = false;
     settings.packet_flow_logging = false;
     settings.use_total_extrusion_backlog = true;
+
+    // Update logger with loaded log level
+    logger.setLogLevel((LogLevel)settings.log_level);
 
     isLoaded = true;
     return true;
@@ -350,24 +387,33 @@ int SettingsManager::getUiRefreshIntervalMs()
     return getSettings().ui_refresh_interval_ms;
 }
 
+int SettingsManager::getLogLevel()
+{
+    return getSettings().log_level;
+}
+
 bool SettingsManager::getDevMode()
 {
-    return getSettings().dev_mode;
+    // DEPRECATED: Returns true if log level is Dev (3)
+    return getSettings().log_level >= 3;
 }
 
 bool SettingsManager::getVerboseLogging()
 {
-    return getSettings().verbose_logging; // TEMPORARY OVERRIDE - revert to: getSettings().verbose_logging;
+    // DEPRECATED: Returns true if log level is Verbose (2) or higher
+    return getSettings().log_level >= 2;
 }
 
 bool SettingsManager::getFlowSummaryLogging()
 {
-    return getSettings().flow_summary_logging;
+    // DEPRECATED: Returns true if log level is Debug (1) or higher
+    return getSettings().log_level >= 1;
 }
 
 bool SettingsManager::getPinDebugLogging()
 {
-    return false; //getSettings().pin_debug_logging; // TEMPORARY OVERRIDE - revert to: getSettings().pin_debug_logging;
+    // DEPRECATED: Returns true if log level is Dev (3)
+    return getSettings().log_level >= 3;
 }
 
 float SettingsManager::getMovementMmPerPulse()
@@ -567,31 +613,68 @@ void SettingsManager::setUiRefreshIntervalMs(int intervalMs)
     settings.ui_refresh_interval_ms = intervalMs;
 }
 
-void SettingsManager::setDevMode(bool devMode)
+void SettingsManager::setLogLevel(int level)
 {
     if (!isLoaded)
         load();
+    // Clamp to valid range
+    if (level < 0) level = 0;
+    if (level > 3) level = 3;
+    settings.log_level = level;
+    // Keep deprecated fields in sync
+    settings.dev_mode = (level >= 3);
+    settings.verbose_logging = (level >= 2);
+    settings.flow_summary_logging = (level >= 1);
+    settings.pin_debug_logging = (level >= 3);
+    // Update logger immediately
+    logger.setLogLevel((LogLevel)level);
+}
+
+void SettingsManager::setDevMode(bool devMode)
+{
+    // DEPRECATED: Sets log level to 3 (Dev) if true, preserves current level if false
+    if (!isLoaded)
+        load();
+    if (devMode && settings.log_level < 3)
+    {
+        setLogLevel(3);
+    }
     settings.dev_mode = devMode;
 }
 
 void SettingsManager::setVerboseLogging(bool verbose)
 {
+    // DEPRECATED: Sets log level to 2 (Verbose) if true, preserves current level if false
     if (!isLoaded)
         load();
+    if (verbose && settings.log_level < 2)
+    {
+        setLogLevel(2);
+    }
     settings.verbose_logging = verbose;
 }
 
 void SettingsManager::setFlowSummaryLogging(bool enabled)
 {
+    // DEPRECATED: Sets log level to 1 (Debug) if true, preserves current level if false
     if (!isLoaded)
         load();
+    if (enabled && settings.log_level < 1)
+    {
+        setLogLevel(1);
+    }
     settings.flow_summary_logging = enabled;
 }
 
 void SettingsManager::setPinDebugLogging(bool enabled)
 {
+    // DEPRECATED: Sets log level to 3 (Dev) if true, preserves current level if false
     if (!isLoaded)
         load();
+    if (enabled && settings.log_level < 3)
+    {
+        setLogLevel(3);
+    }
     settings.pin_debug_logging = enabled;
 }
 
@@ -635,10 +718,11 @@ String SettingsManager::toJson(bool includePassword)
     doc["sdcp_loss_behavior"]         = settings.sdcp_loss_behavior;
     doc["flow_telemetry_stale_ms"]    = settings.flow_telemetry_stale_ms;
     doc["ui_refresh_interval_ms"]     = settings.ui_refresh_interval_ms;
-    doc["dev_mode"]                   = settings.dev_mode;
-    doc["verbose_logging"]            = settings.verbose_logging;
-    doc["flow_summary_logging"]       = settings.flow_summary_logging;
-    doc["pin_debug_logging"]          = settings.pin_debug_logging;
+    doc["log_level"]                  = settings.log_level;  // New unified logging level
+    doc["dev_mode"]                   = settings.dev_mode;   // DEPRECATED: Kept for compatibility
+    doc["verbose_logging"]            = settings.verbose_logging;  // DEPRECATED
+    doc["flow_summary_logging"]       = settings.flow_summary_logging;  // DEPRECATED
+    doc["pin_debug_logging"]          = settings.pin_debug_logging;  // DEPRECATED
     doc["movement_mm_per_pulse"]      = settings.movement_mm_per_pulse;
     doc["auto_calibrate_sensor"]      = settings.auto_calibrate_sensor;
 

@@ -27,10 +27,11 @@ struct user_settings
     int    sdcp_loss_behavior;
     int    flow_telemetry_stale_ms;
     int    ui_refresh_interval_ms;
-    bool   dev_mode;
-    bool   verbose_logging;
-    bool   flow_summary_logging;
-    bool   pin_debug_logging;      // Debug logging for pin states and pulses
+    int    log_level;              // 0=Normal, 1=Debug, 2=Verbose, 3=Dev
+    bool   dev_mode;               // DEPRECATED: use log_level >= 3 instead
+    bool   verbose_logging;        // DEPRECATED: use log_level >= 2 instead
+    bool   flow_summary_logging;   // DEPRECATED: use log_level >= 1 instead
+    bool   pin_debug_logging;      // DEPRECATED: use log_level >= 3 instead
     float  movement_mm_per_pulse;
     bool   auto_calibrate_sensor;  // Auto-calibrate mm_per_pulse at print end
     float  purge_filament_mm;
@@ -91,10 +92,11 @@ class SettingsManager
     int    getSdcpLossBehavior();
     int    getFlowTelemetryStaleMs();
     int    getUiRefreshIntervalMs();
-    bool   getDevMode();
-    bool   getVerboseLogging();
-    bool   getFlowSummaryLogging();
-    bool   getPinDebugLogging();
+    int    getLogLevel();                      // Get current log level (0-3)
+    bool   getDevMode();                       // DEPRECATED: returns (log_level >= 3)
+    bool   getVerboseLogging();                // DEPRECATED: returns (log_level >= 2)
+    bool   getFlowSummaryLogging();            // DEPRECATED: returns (log_level >= 1)
+    bool   getPinDebugLogging();               // DEPRECATED: returns (log_level >= 3)
     float  getMovementMmPerPulse();
     bool   getAutoCalibrateSensor();
 
@@ -124,10 +126,11 @@ class SettingsManager
     void setSdcpLossBehavior(int behavior);
     void setFlowTelemetryStaleMs(int staleMs);
     void setUiRefreshIntervalMs(int intervalMs);
-    void setDevMode(bool devMode);
-    void setVerboseLogging(bool verbose);
-    void setFlowSummaryLogging(bool enabled);
-    void setPinDebugLogging(bool enabled);
+    void setLogLevel(int level);                   // Set log level (0-3), updates logger
+    void setDevMode(bool devMode);                 // DEPRECATED: sets log_level to 3 if true
+    void setVerboseLogging(bool verbose);          // DEPRECATED: sets log_level to 2 if true
+    void setFlowSummaryLogging(bool enabled);      // DEPRECATED: sets log_level to 1 if true
+    void setPinDebugLogging(bool enabled);         // DEPRECATED: sets log_level to 3 if true
     void setMovementMmPerPulse(float mmPerPulse);
     void setAutoCalibrateSensor(bool autoCal);
 

@@ -126,7 +126,7 @@ def ensure_executable(name: str) -> None:
 
 def create_build_timestamp(data_dir: str) -> str:
     """Create build_timestamp.txt with format MMDDYYHHMMSS for filesystem identification."""
-    now = datetime.utcnow()
+    now = datetime.now()  # Use local time instead of UTC
     # Format: MMDDYYHHMMSS
     thumbprint = now.strftime("%m%d%y%H%M%S")
     timestamp_path = os.path.join(data_dir, "build_timestamp.txt")
