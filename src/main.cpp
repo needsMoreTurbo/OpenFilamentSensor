@@ -438,10 +438,27 @@ void loop()
 
     if (!isWifiSetup)
     {
-        isWifiSetup = wifiSetup();
-        isWifiSetup = true;
-        logger.log("Wifi setup complete");
-        return;  //
+        bool success = wifiSetup();
+        isWifiSetup = true;  // Mark as attempted (don't retry setup every loop)
+
+        if (success)
+        {
+            logger.log(F("WiFi connected successfully"));
+            logger.logf("IP Address: %s", WiFi.localIP().toString().c_str());
+        }
+        else
+        {
+            if (settingsManager.isAPMode())
+            {
+                logger.log(F("WiFi setup complete - running in AP mode"));
+                logger.logf("AP IP Address: %s", WiFi.softAPIP().toString().c_str());
+            }
+            else
+            {
+                logger.log(F("WiFi setup attempted - will retry connection in background"));
+            }
+        }
+        return;
     }
     if (!isWebServerSetup)
     {

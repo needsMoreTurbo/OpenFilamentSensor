@@ -195,6 +195,7 @@ class ElegooCC
     void handleCommandResponse(JsonDocument &doc);
     void handleStatus(JsonDocument &doc);
     void sendCommand(int command, bool waitForAck = false);
+   public:
     void pausePrint();
     void continuePrint();
 

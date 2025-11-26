@@ -187,6 +187,13 @@ void WebServer::begin()
             request->send(200, "text/plain", "ok");
         }));
 
+    server.on("/test_cancel", HTTP_POST,
+              [](AsyncWebServerRequest *request)
+              {
+                  elegooCC.pausePrint();
+                  request->send(200, "text/plain", "ok");
+              });
+
     server.on("/discover_printer", HTTP_GET,
               [](AsyncWebServerRequest *request)
               {

@@ -1640,6 +1640,7 @@
 
                     <div class="btn-group">
                         <button type="button" class="btn" onclick="saveSettings()">Save Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="testCancel()">Test Cancel</button>
                     </div>
                 `;
             } catch (error) {
@@ -1693,6 +1694,19 @@
                 }
             } catch (error) {
                 showToast('Failed to save settings: ' + error.message, 'error');
+            }
+        }
+
+        async function testCancel() {
+            try {
+                const response = await fetch('/test_cancel', { method: 'POST' });
+                if (response.ok) {
+                    showToast('Cancel command sent', 'success');
+                } else {
+                    throw new Error('Request failed');
+                }
+            } catch (error) {
+                showToast('Failed to send cancel command: ' + error.message, 'error');
             }
         }
 
