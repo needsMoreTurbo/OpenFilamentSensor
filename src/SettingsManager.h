@@ -36,6 +36,7 @@ struct user_settings
     float  movement_mm_per_pulse;
     bool   auto_calibrate_sensor;  // Auto-calibrate mm_per_pulse at print end
     float  purge_filament_mm;
+    bool   test_recording_mode;    // Enable CSV test data recording to ./condensed directory
 
     // Deprecated settings (kept for backwards compatibility during migration)
     float  expected_deficit_mm;        // DEPRECATED: use detection_length_mm
@@ -101,6 +102,7 @@ class SettingsManager
     bool   getPinDebugLogging();               // DEPRECATED: returns (log_level >= 3)
     float  getMovementMmPerPulse();
     bool   getAutoCalibrateSensor();
+    bool   getTestRecordingMode();             // Get test recording mode state
 
     // Deprecated getters (for backwards compatibility)
     float  getExpectedDeficitMM();     // DEPRECATED: use getDetectionLengthMM()
@@ -136,6 +138,7 @@ class SettingsManager
     void setPinDebugLogging(bool enabled);         // DEPRECATED: sets log_level to 3 if true
     void setMovementMmPerPulse(float mmPerPulse);
     void setAutoCalibrateSensor(bool autoCal);
+    void setTestRecordingMode(bool enabled);       // Enable/disable test recording mode
 
     // Deprecated setters (for backwards compatibility)
     void setExpectedDeficitMM(float value);    // DEPRECATED: use setDetectionLengthMM()

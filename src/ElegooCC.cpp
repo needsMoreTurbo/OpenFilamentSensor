@@ -799,7 +799,9 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
 #ifdef INVERT_MOVEMENT_PIN
     currentMovementValue = !currentMovementValue;  // Invert the logic if flag is set
 #endif
-    bool debugFlow            = settingsManager.getVerboseLogging();
+    // Test recording mode enables verbose flow logging for CSV extraction
+    bool testRecordingMode    = settingsManager.getTestRecordingMode();
+    bool debugFlow            = settingsManager.getVerboseLogging() || testRecordingMode;
     bool summaryFlow          = settingsManager.getFlowSummaryLogging();
     bool currentlyPrinting    = isPrinting();
 
@@ -949,6 +951,23 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
         withinGrace = true;
     }
 
+    // Log grace period transitions
+    static bool lastGraceState = true;  // Start true to avoid log spam on first eval
+    if (withinGrace != lastGraceState && debugFlow)
+    {
+        if (withinGrace)
+        {
+            logger.logf("Grace period ACTIVE (baseGrace=%d resumeGrace=%d minExtrusion=%.2f/%.2f)",
+                       baseGraceActive ? 1 : 0, resumeGraceActive ? 1 : 0,
+                       expectedFilamentMM, minExtrusionBeforeDetect);
+        }
+        else
+        {
+            logger.log("Grace period CLEARED - jam detection ENABLED");
+        }
+        lastGraceState = withinGrace;
+    }
+
     unsigned long elapsedMs;
     if (lastJamEvalMs == 0)
     {
@@ -981,36 +1000,50 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     const float MIN_SOFT_WINDOW_MM  = 1.0f;
     const float MIN_SOFT_DEFICIT_MM = 0.25f;
 
+    // Evaluate jam conditions (for logging and detection)
     bool hardCondition = (expectedDistance >= minHardWindowMm) &&
                          (passRatio < HARD_PASS_THRESHOLD);
-    if (hardCondition)
-    {
-        hardJamAccumulatedMs += elapsedMs;
-        if (hardJamAccumulatedMs > (unsigned long)hardJamTimeMs)
-        {
-            hardJamAccumulatedMs = hardJamTimeMs;
-        }
-    }
-    else if (newPulseSinceLastEval || passRatio >= HARD_RECOVERY_RATIO ||
-             expectedDistance < (minHardWindowMm * 0.5f))
-    {
-        hardJamAccumulatedMs = 0;
-    }
-
     bool softCondition = (expectedDistance >= MIN_SOFT_WINDOW_MM) &&
                          (deficit >= MIN_SOFT_DEFICIT_MM) &&
                          (passRatio < ratioThreshold);
-    if (softCondition)
+
+    // Only accumulate jam detection time when NOT in grace period
+    if (withinGrace)
     {
-        softJamAccumulatedMs += elapsedMs;
-        if (softJamAccumulatedMs > (unsigned long)softJamTimeMs)
-        {
-            softJamAccumulatedMs = softJamTimeMs;
-        }
-    }
-    else if (passRatio >= ratioThreshold * 0.85f || newPulseSinceLastEval)
-    {
+        // Reset accumulators during grace period
+        hardJamAccumulatedMs = 0;
         softJamAccumulatedMs = 0;
+    }
+    else
+    {
+        // Hard jam accumulation (near-zero movement)
+        if (hardCondition)
+        {
+            hardJamAccumulatedMs += elapsedMs;
+            if (hardJamAccumulatedMs > (unsigned long)hardJamTimeMs)
+            {
+                hardJamAccumulatedMs = hardJamTimeMs;
+            }
+        }
+        else if (newPulseSinceLastEval || passRatio >= HARD_RECOVERY_RATIO ||
+                 expectedDistance < (minHardWindowMm * 0.5f))
+        {
+            hardJamAccumulatedMs = 0;
+        }
+
+        // Soft jam accumulation (poor pass ratio)
+        if (softCondition)
+        {
+            softJamAccumulatedMs += elapsedMs;
+            if (softJamAccumulatedMs > (unsigned long)softJamTimeMs)
+            {
+                softJamAccumulatedMs = softJamTimeMs;
+            }
+        }
+        else if (passRatio >= ratioThreshold * 0.85f || newPulseSinceLastEval)
+        {
+            softJamAccumulatedMs = 0;
+        }
     }
 
     if (hardJamTimeMs > 0)
@@ -1037,15 +1070,8 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     bool softJamTriggered = false;
     bool jammed = false;
 
-    if (withinGrace)
-    {
-        hardJamAccumulatedMs = 0;
-        softJamAccumulatedMs = 0;
-        hardJamPercent       = 0.0f;
-        softJamPercent       = 0.0f;
-        jammed               = false;
-    }
-    else
+    // Check if jam thresholds are met (only possible when not in grace period)
+    if (!withinGrace)
     {
         hardJamTriggered = (hardJamTimeMs > 0) &&
                            (hardJamAccumulatedMs >= (unsigned long)hardJamTimeMs);
@@ -1074,16 +1100,17 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     }
 
     if (debugFlow && (hardCondition || softCondition ||
-                      hardJamAccumulatedMs > 0 || softJamAccumulatedMs > 0) &&
+                      hardJamAccumulatedMs > 0 || softJamAccumulatedMs > 0 || withinGrace) &&
         (currentTime - lastJamDebugMs) >= JAM_DEBUG_INTERVAL_MS)
     {
         lastJamDebugMs = currentTime;
         logger.logf(
-            "Jam eval: hardCond=%d softCond=%d hardMs=%lu/%d softMs=%lu/%d pass=%.2f win=%.2f sns=%.2f pulses=%lu",
+            "Jam eval: hardCond=%d softCond=%d hardMs=%lu/%d softMs=%lu/%d pass=%.2f win=%.2f sns=%.2f pulses=%lu grace=%d",
             hardCondition ? 1 : 0, softCondition ? 1 : 0,
             hardJamAccumulatedMs, hardJamTimeMs,
             softJamAccumulatedMs, softJamTimeMs,
-            passRatio, expectedDistance, actualDistance, movementPulseCount);
+            passRatio, expectedDistance, actualDistance, movementPulseCount,
+            withinGrace ? 1 : 0);
     }
 
     if (summaryFlow && currentlyPrinting && !debugFlow && (currentTime - lastSummaryLogMs) >= 1000)

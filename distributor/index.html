@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centauri Firmware Distributor</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="https://unpkg.com/esp-web-tools/dist/web/install-button.js?module"></script>
+    <script type="module" src="./app.js" defer></script>
+</head>
+
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="branding">
+                <div class="logo-container">
+                    <span class="logo-text">CC</span>
+                </div>
+                <div class="title-container">
+                    <h1>Centauri Firmware Distributor</h1>
+                    <p class="powered-by">
+                        <span class="status-dot"></span>
+                        Built with the same DNA as the dashboard experience
+                    </p>
+                </div>
+            </div>
+            <div class="header-meta">
+                <p class="meta-label">Web Serial Ready</p>
+                <p class="meta-value">Chrome · Edge · Opera</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero card">
+            <div class="card-header">
+                <div>
+                    <p class="eyebrow">Release Pipeline</p>
+                    <h2>Flash the latest certified build to your ESP32</h2>
+                </div>
+                <span class="card-header-icon">⚡</span>
+            </div>
+            <p class="hero-copy">
+                Drop this container on any VM, point it at the binaries you ship, and share a single URL.
+                Users pick their board, connect over Web Serial, and watch the flashing output in real time.
+            </p>
+            <div class="hero-grid">
+                <div>
+                    <p class="metric-label">Active firmware line</p>
+                    <p class="metric-value" id="activeFirmwareLabel">Loading…</p>
+                </div>
+                <div>
+                    <p class="metric-label">Last published</p>
+                    <p class="metric-value" id="activeFirmwareDate">—</p>
+                </div>
+                <div>
+                    <p class="metric-label">Boards online</p>
+                    <p class="metric-value" id="boardCount">—</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="layout-grid">
+            <article class="card">
+                <div class="card-header">
+                    <div>
+                        <p class="eyebrow">Board Selection</p>
+                        <h3>Choose your hardware</h3>
+                    </div>
+                    <span class="card-header-icon">🧭</span>
+                </div>
+                <div class="field-group">
+                    <label for="boardSelect">Target board</label>
+                    <div class="select-wrapper">
+                        <select id="boardSelect" aria-label="Board type"></select>
+                        <span class="select-caret">⌄</span>
+                    </div>
+                </div>
+                <div class="board-summary">
+                    <div>
+                        <p class="summary-label">Firmware status</p>
+                        <p class="status-chip" id="boardStatus">—</p>
+                    </div>
+                    <div>
+                        <p class="summary-label">Current version</p>
+                        <p class="summary-value" id="boardVersion">—</p>
+                    </div>
+                    <div>
+                        <p class="summary-label">Released</p>
+                        <p class="summary-value" id="boardRelease">—</p>
+                    </div>
+                </div>
+                <div class="file-list">
+                    <p class="summary-label">Expected files</p>
+                    <ul id="fileList"></ul>
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-header">
+                    <div>
+                        <p class="eyebrow">Deploy</p>
+                        <h3>Flash via Web Serial</h3>
+                    </div>
+                    <span class="card-header-icon">🚀</span>
+                </div>
+                <div class="instructions">
+                    <ol>
+                        <li>Plug your ESP32 into this machine with a data-capable USB cable.</li>
+                        <li>Use Chrome, Edge, or any browser with Web Serial enabled.</li>
+                        <li>Click <strong>Flash firmware</strong>, pick the serial port, and confirm.</li>
+                    </ol>
+                </div>
+                <esp-web-install-button id="installButton">
+                    <button class="primary-btn" slot="activate" type="button" id="flashTrigger">
+                        <span>Flash firmware</span>
+                    </button>
+                    <span slot="unsupported" class="warning-text">
+                        Web Serial is not available in this browser. Try Chrome or Edge on desktop.
+                    </span>
+                    <span slot="not-allowed" class="warning-text">
+                        Hosting must be HTTPS or localhost for Web Serial. Deploy behind TLS to continue.
+                    </span>
+                </esp-web-install-button>
+                <p class="small-print">
+                    Need the CLI instead? The binaries referenced above match the <code>manifest.json</code> files under
+                    <code>/firmware/&lt;board&gt;</code>.
+                </p>
+            </article>
+
+            <article class="card">
+                <div class="card-header">
+                    <div>
+                        <p class="eyebrow">Release Notes</p>
+                        <h3 id="releaseNotesTitle">Notes</h3>
+                    </div>
+                    <span class="card-header-icon">📓</span>
+                </div>
+                <ul class="notes-list" id="notesList"></ul>
+            </article>
+
+            <article class="card log-card">
+                <div class="card-header">
+                    <div>
+                        <p class="eyebrow">Flash Output</p>
+                        <h3>Live console</h3>
+                    </div>
+                    <div class="log-actions">
+                        <button type="button" class="ghost-btn" id="copyLogBtn">Copy log</button>
+                        <button type="button" class="ghost-btn" id="clearLogBtn">Clear</button>
+                    </div>
+                </div>
+                <div class="log-stream" id="logStream">
+                    <p class="muted">Click “Flash firmware” to begin capturing installer output.</p>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <p>Centauri Carbon Motion Detector Distributor · v1</p>
+            <p>
+                Need to post a new build? Drop binaries under <code>distributor/firmware/&lt;board&gt;</code> and update
+                <code>boards.json</code>.
+            </p>
+        </div>
+    </footer>
+</body>
+
+</html>

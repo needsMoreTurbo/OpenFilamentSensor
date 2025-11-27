@@ -221,6 +221,9 @@ bool SettingsManager::load()
     settings.auto_calibrate_sensor = doc.containsKey("auto_calibrate_sensor")
                                          ? doc["auto_calibrate_sensor"].as<bool>()
                                          : false;  // Default disabled
+    settings.test_recording_mode = doc.containsKey("test_recording_mode")
+                                       ? doc["test_recording_mode"].as<bool>()
+                                       : false;  // Default disabled
 
     // Load deprecated settings for backwards compatibility (ignored in new code)
     settings.expected_deficit_mm = settings.detection_length_mm;  // Keep in sync
@@ -439,6 +442,11 @@ float SettingsManager::getMovementMmPerPulse()
 bool SettingsManager::getAutoCalibrateSensor()
 {
     return getSettings().auto_calibrate_sensor;
+}
+
+bool SettingsManager::getTestRecordingMode()
+{
+    return getSettings().test_recording_mode;
 }
 
 void SettingsManager::setSSID(const String &ssid)
@@ -714,6 +722,13 @@ void SettingsManager::setAutoCalibrateSensor(bool autoCal)
     settings.auto_calibrate_sensor = autoCal;
 }
 
+void SettingsManager::setTestRecordingMode(bool enabled)
+{
+    if (!isLoaded)
+        load();
+    settings.test_recording_mode = enabled;
+}
+
 String SettingsManager::toJson(bool includePassword)
 {
     String                   output;
@@ -731,7 +746,6 @@ String SettingsManager::toJson(bool includePassword)
     doc["start_print_timeout"] = settings.start_print_timeout;
     doc["enabled"]             = settings.enabled;
     doc["has_connected"]       = settings.has_connected;
-    doc["detection_length_mm"]        = settings.detection_length_mm;
     doc["detection_grace_period_ms"]  = settings.detection_grace_period_ms;
     doc["detection_min_start_mm"]     = settings.detection_min_start_mm;
     doc["purge_filament_mm"]          = settings.purge_filament_mm;
@@ -749,6 +763,7 @@ String SettingsManager::toJson(bool includePassword)
     doc["suppress_pause_commands"]    = settings.suppress_pause_commands;
     doc["movement_mm_per_pulse"]      = settings.movement_mm_per_pulse;
     doc["auto_calibrate_sensor"]      = settings.auto_calibrate_sensor;
+    doc["test_recording_mode"]        = settings.test_recording_mode;
 
     if (includePassword)
     {

@@ -1,0 +1,44 @@
+{
+  "defaultBoard": "esp32s3",
+  "boards": [
+    {
+      "id": "esp32s3",
+      "name": "Centauri Carbon Motion Detector",
+      "variant": "ESP32-S3 Reference (Rev C)",
+      "chipFamily": "ESP32-S3",
+      "status": "stable",
+      "version": "1.3.0",
+      "released": "2025-11-27",
+      "manifest": "./firmware/esp32s3/manifest.json",
+      "notes": [
+        "Production calibrations for flow tracking",
+        "Faster OTA error recovery",
+        "Improved stall detector heuristics"
+      ],
+      "files": [
+        "firmware/esp32s3/bootloader.bin",
+        "firmware/esp32s3/partitions.bin",
+        "firmware/esp32s3/firmware.bin"
+      ]
+    },
+    {
+      "id": "esp32",
+      "name": "Centauri Carbon Motion Detector",
+      "variant": "ESP32 Legacy (Rev A/B)",
+      "chipFamily": "ESP32",
+      "status": "beta",
+      "version": "0.9.8",
+      "released": "2025-10-02",
+      "manifest": "./firmware/esp32/manifest.json",
+      "notes": [
+        "Legacy support for external UART bridge",
+        "Slightly slower flashing because of ROM loader"
+      ],
+      "files": [
+        "firmware/esp32/bootloader.bin",
+        "firmware/esp32/partitions.bin",
+        "firmware/esp32/firmware.bin"
+      ]
+    }
+  ]
+}

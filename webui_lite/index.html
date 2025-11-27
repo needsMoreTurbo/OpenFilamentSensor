@@ -1027,6 +1027,10 @@
                     <span class="info-label">Filesystem Thumbprint</span>
                     <span class="info-value" id="filesystemThumbprint" style="font-family: 'Consolas', monospace;">Loading...</span>
                 </div>
+                <div class="info-row">
+                    <span class="info-label">Build</span>
+                    <span class="info-value" id="buildVersion" style="font-family: 'Consolas', monospace;">Loading...</span>
+                </div>
 
                 <h3 style="color: var(--accent-primary); margin: 24px 0 16px;">Hardware</h3>
                 <div class="info-row">
@@ -1822,6 +1826,7 @@
                 document.getElementById('buildDate').textContent = formatThumbprint(data.firmware_thumbprint);
                 document.getElementById('firmwareThumbprint').textContent = formatThumbprint(data.firmware_thumbprint);
                 document.getElementById('filesystemThumbprint').textContent = formatThumbprint(data.filesystem_thumbprint);
+                document.getElementById('buildVersion').textContent = 'v' + (data.build_version || '0.0.0');
 
                 const statusResponse = await fetch('/sensor_status');
                 const statusData = await statusResponse.json();

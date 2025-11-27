@@ -20,7 +20,9 @@
   "enabled": true,
   "auto_calibrate_sensor": false,
   "log_level": 2,
+  "suppress_pause_commands": false,
   "sdcp_loss_behavior": 2,
   "flow_telemetry_stale_ms": 1500,
-  "ui_refresh_interval_ms": 1000
+  "ui_refresh_interval_ms": 1000,
+  "test_recording_mode": false
 }

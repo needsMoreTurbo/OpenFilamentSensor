@@ -124,6 +124,76 @@ def ensure_executable(name: str) -> None:
         sys.exit(1)
 
 
+def read_version_file(repo_root: str) -> tuple[int, int, int]:
+    """Read version from .version file. Returns (major, minor, build)."""
+    version_path = os.path.join(repo_root, "data/.version")
+    if not os.path.exists(version_path):
+        # Initialize with 0.0.0 if file doesn't exist
+        return (0, 0, 0)
+
+    try:
+        with open(version_path, "r", encoding="utf-8") as f:
+            version_str = f.read().strip()
+            parts = version_str.split(".")
+            if len(parts) == 3:
+                return (int(parts[0]), int(parts[1]), int(parts[2]))
+    except (ValueError, IOError):
+        pass
+
+    # Default to 0.0.0 on any error
+    return (0, 0, 0)
+
+
+def write_version_file(repo_root: str, major: int, minor: int, build: int) -> str:
+    """Write version to .version file. Returns version string."""
+    version_path = os.path.join(repo_root, "data/.version")
+    version_str = f"{major}.{minor}.{build}"
+    with open(version_path, "w", encoding="utf-8") as f:
+        f.write(version_str)
+    return version_str
+
+
+def increment_version(repo_root: str, increment_type: Optional[str]) -> Optional[str]:
+    """
+    Increment version based on type:
+    - 'build': increment build number (0.0.0 -> 0.0.1)
+    - 'version': increment minor, reset build (0.0.12 -> 0.1.0)
+    - 'release': increment major, reset minor and build (0.1.12 -> 1.0.0)
+    Returns new version string or None if no increment requested.
+    """
+    if not increment_type:
+        return None
+
+    major, minor, build = read_version_file(repo_root)
+
+    if increment_type == "build":
+        build += 1
+    elif increment_type == "version":
+        minor += 1
+        build = 0
+    elif increment_type == "release":
+        major += 1
+        minor = 0
+        build = 0
+    else:
+        return None
+
+    version_str = write_version_file(repo_root, major, minor, build)
+    print(f"Version incremented to: v{version_str}")
+    return version_str
+
+
+def create_build_version(data_dir: str, repo_root: str) -> str:
+    """Create build_version.txt with current version from .version file."""
+    major, minor, build = read_version_file(repo_root)
+    version_str = f"{major}.{minor}.{build}"
+    version_path = os.path.join(data_dir, "build_version.txt")
+    with open(version_path, "w", encoding="utf-8") as f:
+        f.write(version_str)
+    print(f"Created build version file: v{version_str}")
+    return version_path
+
+
 def create_build_timestamp(data_dir: str) -> str:
     """Create build_timestamp.txt with format MMDDYYHHMMSS for filesystem identification."""
     now = datetime.now()  # Use local time instead of UTC
@@ -161,6 +231,25 @@ def main() -> None:
         default=None,
         help="Build mode: 'nofs' = firmware only (no merge), 'nobin' = filesystem only (no merge), default = full build with merge",
     )
+
+    # Version increment arguments (mutually exclusive)
+    version_group = parser.add_mutually_exclusive_group()
+    version_group.add_argument(
+        "--increment-build",
+        action="store_true",
+        help="Increment build number (0.0.0 -> 0.0.1)",
+    )
+    version_group.add_argument(
+        "--increment-version",
+        action="store_true",
+        help="Increment version number and reset build (0.0.12 -> 0.1.0)",
+    )
+    version_group.add_argument(
+        "--increment-release",
+        action="store_true",
+        help="Increment release number and reset version and build (0.1.12 -> 1.0.0)",
+    )
+
     args = parser.parse_args()
 
     # Resolve paths relative to this file (tools/ -> repo root)
@@ -234,7 +323,20 @@ def main() -> None:
     if args.ignore_secrets:
         print("Skipping data/secrets.json merge (--ignore-secrets).")
 
+    # Handle version incrementing
+    increment_type = None
+    if args.increment_build:
+        increment_type = "build"
+    elif args.increment_version:
+        increment_type = "version"
+    elif args.increment_release:
+        increment_type = "release"
+
+    if increment_type:
+        increment_version(repo_root, increment_type)
+
     timestamp_path: Optional[str] = None
+    version_path: Optional[str] = None
     try:
         # Build mode: nofs = firmware only (no merge)
         if args.build_mode == "nofs":
@@ -251,6 +353,7 @@ def main() -> None:
             print("\n=== Build Mode: Filesystem Only (no merge) ===")
             with temporarily_merge_secrets(settings_path, secrets_path, args.ignore_secrets):
                 timestamp_path = create_build_timestamp(data_dir)
+                version_path = create_build_version(data_dir, repo_root)
                 fs_target = "uploadfs" if not args.local else "buildfs"
                 with temporarily_hide_files(secret_file_paths):
                     run([pio_cmd, "run", "-e", args.env, "-t", fs_target], cwd=repo_root)
@@ -264,8 +367,9 @@ def main() -> None:
         else:
             print("\n=== Build Mode: Full Build (with merge) ===")
             with temporarily_merge_secrets(settings_path, secrets_path, args.ignore_secrets):
-                # Create filesystem build timestamp before building filesystem
+                # Create filesystem build timestamp and version before building filesystem
                 timestamp_path = create_build_timestamp(data_dir)
+                version_path = create_build_version(data_dir, repo_root)
 
                 # Filesystem upload/build (uses merged settings if present)
                 fs_target = "uploadfs" if not args.local else "buildfs"
@@ -285,6 +389,8 @@ def main() -> None:
     finally:
         if timestamp_path and os.path.exists(timestamp_path):
             os.remove(timestamp_path)
+        if version_path and os.path.exists(version_path):
+            os.remove(version_path)
 
 
 if __name__ == "__main__":

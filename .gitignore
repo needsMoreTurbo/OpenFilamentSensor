@@ -20,3 +20,4 @@ webui_lite/node_modules/
 tools/.venv/
 tools/.platformio/
 test/nul
+data/.version

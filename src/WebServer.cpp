@@ -51,6 +51,18 @@ String getFilesystemThumbprint() {
     return thumbprint.length() > 0 ? thumbprint : "unknown";
 }
 
+// Read build version from file
+String getBuildVersion() {
+    File file = SPIFFS.open("/build_version.txt", "r");
+    if (!file) {
+        return "0.0.0";
+    }
+    String version = file.readStringUntil('\n');
+    file.close();
+    version.trim();
+    return version.length() > 0 ? version : "0.0.0";
+}
+
 WebServer::WebServer(int port) : server(port), statusEvents("/status_events") {}
 
 void WebServer::begin()
@@ -158,6 +170,11 @@ void WebServer::begin()
             {
                 settingsManager.setSuppressPauseCommands(jsonObj["suppress_pause_commands"].as<bool>());
             }
+            // Unified log level (replaces deprecated boolean flags)
+            if (jsonObj.containsKey("log_level"))
+            {
+                settingsManager.setLogLevel(jsonObj["log_level"].as<int>());
+            }
             // Deprecated settings - accepted but ignored for backwards compatibility
             // zero_deficit_logging - removed (use verbose_logging)
             // use_total_extrusion_deficit - removed (always use total mode)
@@ -187,9 +204,14 @@ void WebServer::begin()
                 settingsManager.setAutoCalibrateSensor(
                     jsonObj["auto_calibrate_sensor"].as<bool>());
             }
-            settingsManager.save();
+            if (jsonObj.containsKey("test_recording_mode"))
+            {
+                settingsManager.setTestRecordingMode(
+                    jsonObj["test_recording_mode"].as<bool>());
+            }
+            bool saved = settingsManager.save();
             jsonObj.clear();
-            request->send(200, "text/plain", "ok");
+            request->send(saved ? 200 : 500, "text/plain", saved ? "ok" : "save failed");
         }));
 
     server.on("/test_cancel", HTTP_POST,
@@ -304,6 +326,7 @@ void WebServer::begin()
                   jsonDoc["build_time"]       = __TIME__;
                   jsonDoc["firmware_thumbprint"] = getBuildThumbprint(__DATE__, __TIME__);
                   jsonDoc["filesystem_thumbprint"] = getFilesystemThumbprint();
+                  jsonDoc["build_version"] = getBuildVersion();
 
                   String jsonResponse;
                   serializeJson(jsonDoc, jsonResponse);

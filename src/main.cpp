@@ -7,7 +7,6 @@
 #include "Logger.h"
 #include "SettingsManager.h"
 #include "WebServer.h"
-#include "improv.h"
 #include "time.h"
 
 #define SPIFFS LittleFS
@@ -50,10 +49,6 @@ bool isElegooSetup    = false;
 bool isWebServerSetup = false;
 bool isNtpSetup       = false;
 
-// Used by improv-wifi to parse serial data
-uint8_t x_buffer[16];
-uint8_t x_position = 0;
-
 // Variables to track NTP synchronization
 unsigned long lastNTPSyncAttempt = 0;
 
@@ -67,7 +62,7 @@ void failWifi()
         if (settingsManager.save())
         {
             logger.log("Failed to connect to wifi, reverted to AP mode (first connection attempt)");
-            logger.log("Please manually restart device to enter AP mode, or use Improv WiFi serial setup");
+            logger.log("Please manually restart device to enter AP mode.");
         }
         else
         {
@@ -75,7 +70,7 @@ void failWifi()
         }
 
         // Don't restart - let system continue in current state
-        // User can manually restart or use Improv WiFi to configure
+        // User can manually restart to configure WiFi
     }
     else
     {
@@ -297,167 +292,9 @@ unsigned long getTime()
     return now;
 }
 
-void onImprovErrorCallback(improv::Error err)
-{
-    logger.logf("Improv error: %d", err);
-}
-
-std::vector<std::string> getLocalUrl()
-{
-    return {// URL where user can finish onboarding or use device
-            // Recommended to use website hosted by device
-            String("http://" + WiFi.localIP().toString()).c_str()};
-}
-
-void getAvailableWifiNetworks()
-{
-    int networkNum = WiFi.scanNetworks();
-
-    for (int id = 0; id < networkNum; ++id)
-    {
-        std::vector<uint8_t> data =
-            improv::build_rpc_response(improv::GET_WIFI_NETWORKS,
-                                       {WiFi.SSID(id), String(WiFi.RSSI(id)),
-                                        (WiFi.encryptionType(id) == WIFI_AUTH_OPEN ? "NO" : "YES")},
-                                       false);
-        improv::send_response(data);
-        delay(1);
-    }
-    // final response
-    std::vector<uint8_t> data =
-        improv::build_rpc_response(improv::GET_WIFI_NETWORKS, std::vector<std::string>{}, false);
-    improv::send_response(data);
-}
-
-bool onImprovCommandCallback(improv::ImprovCommand cmd)
-{
-    switch (cmd.command)
-    {
-        case improv::Command::GET_CURRENT_STATE:
-        {
-            if ((WiFi.status() == WL_CONNECTED))
-            {
-                improv::set_state(improv::State::STATE_PROVISIONED);
-                std::vector<uint8_t> data =
-                    improv::build_rpc_response(improv::GET_CURRENT_STATE, getLocalUrl(), false);
-                improv::send_response(data);
-            }
-            else
-            {
-                improv::set_state(improv::State::STATE_AUTHORIZED);
-            }
-
-            break;
-        }
-
-        case improv::Command::WIFI_SETTINGS:
-        {
-            if (cmd.ssid.length() == 0)
-            {
-                improv::set_error(improv::Error::ERROR_INVALID_RPC);
-                break;
-            }
-
-            improv::set_state(improv::STATE_PROVISIONING);
-
-            settingsManager.setSSID(cmd.ssid.c_str());
-            settingsManager.setPassword(cmd.password.c_str());
-            settingsManager.setAPMode(false);
-            settingsManager.save(true);  // skip wifi check, we're about to try connecting
-
-            if (reconnectWifiWithNewCredentials())  // connectWifi(cmd.ssid, cmd.password)
-            {
-                improv::set_state(improv::STATE_PROVISIONED);
-                std::vector<uint8_t> data =
-                    improv::build_rpc_response(improv::WIFI_SETTINGS, getLocalUrl(), false);
-                improv::send_response(data);
-            }
-            else
-            {
-                improv::set_state(improv::STATE_STOPPED);
-                improv::set_error(improv::Error::ERROR_UNABLE_TO_CONNECT);
-            }
-
-            break;
-        }
-
-        case improv::Command::GET_DEVICE_INFO:
-        {
-            std::vector<std::string> infos = {// Firmware name
-                                              "CC_SFS",
-                                              // Firmware version
-                                              firmwareVersion,
-                                              // Hardware chip/variant
-                                              chipFamily,
-                                              // Device name
-                                              "CC_SFS"};
-            std::vector<uint8_t>     data =
-                improv::build_rpc_response(improv::GET_DEVICE_INFO, infos, false);
-            improv::send_response(data);
-            break;
-        }
-
-        case improv::Command::GET_WIFI_NETWORKS:
-        {
-            getAvailableWifiNetworks();
-            break;
-        }
-
-        default:
-        {
-            improv::set_error(improv::ERROR_UNKNOWN_RPC);
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool handleImprovWifi()
-{
-    if (Serial.available() > 0)
-    {
-        uint8_t b = Serial.read();
-
-        if (parse_improv_serial_byte(x_position, b, x_buffer, onImprovCommandCallback,
-                                     onImprovErrorCallback))
-        {
-            x_buffer[x_position++] = b;
-        }
-        else
-        {
-            x_position = 0;
-        }
-        return true;
-    }
-    return false;
-}
-
 void loop()
 {
-    static unsigned long lastNonSerialRun = 0;
-    static unsigned long lastYield = 0;
     unsigned long currentTime = millis();
-
-    // Handle serial, but enforce rate limiting to prevent system starvation
-    if (handleImprovWifi())
-    {
-        // Always yield to WiFi/system tasks
-        if (currentTime - lastYield >= 10)  // Every 10ms minimum
-        {
-            yield();  // Let WiFi stack process
-            lastYield = currentTime;
-        }
-
-        // Force full loop execution every 100ms even if serial is busy
-        if (currentTime - lastNonSerialRun < 100)
-        {
-            return;  // Can skip non-serial tasks for up to 100ms
-        }
-        // Fall through to run rest of loop
-    }
-
-    lastNonSerialRun = currentTime;
     bool          isWifiConnected = !settingsManager.isAPMode() && WiFi.status() == WL_CONNECTED;
 
     if (!isWifiSetup)
