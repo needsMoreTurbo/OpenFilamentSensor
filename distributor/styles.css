@@ -219,6 +219,12 @@ main {
     margin-bottom: 8px;
 }
 
+.wifi-helper {
+    margin: 0 0 12px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
 .select-wrapper {
     position: relative;
 }
@@ -232,6 +238,112 @@ select {
     color: var(--text-primary);
     font-size: 1rem;
     appearance: none;
+}
+
+.wifi-card input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.wifi-form .field-group + .field-group {
+    margin-top: 12px;
+}
+
+.wifi-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.wifi-status {
+    margin-top: 14px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.wifi-actions .primary-btn {
+    width: auto;
+}
+
+.wifi-dialog {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.wifi-dialog.hidden {
+    pointer-events: none;
+}
+
+.wifi-dialog:not(.hidden) {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.wifi-dialog-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 13, 0.9);
+}
+
+.wifi-dialog-panel {
+    position: relative;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 32px;
+    width: min(460px, 90vw);
+    z-index: 2;
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.2s ease;
+}
+
+.wifi-dialog-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+}
+
+.wifi-dialog-note {
+    margin: 0 0 20px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.wifi-dialog-disclaimer {
+    margin-top: 20px;
+    font-size: 0.85rem;
+    color: var(--warning);
+    border-top: 1px dashed rgba(255, 255, 255, 0.3);
+    padding-top: 14px;
+    line-height: 1.4;
+}
+
+.wifi-dialog.hidden .wifi-dialog-backdrop {
+    display: none;
 }
 
 .select-caret {
@@ -392,6 +504,108 @@ select {
 
 .log-entry.error {
     color: #ff6b6b;
+}
+
+.install-dialog-log-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    z-index: 1100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.install-dialog-log-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.install-dialog-log-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.install-dialog-log-panel {
+    width: min(720px, 90vw);
+    max-height: 80vh;
+    background: rgba(5, 6, 13, 0.96);
+    border-radius: 28px;
+    padding: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+}
+
+.install-dialog-slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.install-dialog-slot ewt-install-dialog {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.install-dialog-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.install-dialog-log-close {
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+}
+
+.install-dialog-log-panel .log-stream {
+    background: rgba(8, 10, 16, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 18px;
+    max-height: calc(80vh - 110px);
+    min-height: 240px;
+    overflow-y: auto;
+}
+
+.install-dialog-log-panel .log-stream::-webkit-scrollbar {
+    width: 6px;
+}
+
+.install-dialog-log-panel .log-stream::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+    .install-dialog-log-panel {
+        width: calc(100% - 32px);
+        padding: 24px;
+        border-radius: 20px;
+    }
 }
 
 .muted {

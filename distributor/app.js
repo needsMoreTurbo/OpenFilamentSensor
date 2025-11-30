@@ -1,3 +1,5 @@
+import { initWifiPatcher } from './wifiPatcher.js';
+
 const selectors = {
     boardSelect: document.getElementById('boardSelect'),
     boardStatus: document.getElementById('boardStatus'),
@@ -13,6 +15,10 @@ const selectors = {
     clearLogBtn: document.getElementById('clearLogBtn'),
     heroLabel: document.getElementById('activeFirmwareLabel'),
     heroDate: document.getElementById('activeFirmwareDate'),
+    wifiForm: document.getElementById('wifiPatchForm'),
+    wifiStatus: document.getElementById('wifiPatchStatus'),
+    wifiAcceptBtn: document.getElementById('wifiAcceptBtn'),
+    wifiPatchDialog: document.getElementById('wifiPatchDialog'),
     boardCount: document.getElementById('boardCount')
 };
 
@@ -21,7 +27,12 @@ const state = {
     selected: null,
     capturing: false,
     dialogOpen: false,
-    consoleOriginals: {}
+    dialogLogOverlay: null,
+    dialogLogStream: null,
+    dialogSlot: null,
+    logHistoryLimit: 400,
+    consoleOriginals: {},
+    wifiPatcher: null
 };
 
 const formatDate = (value) => {
@@ -31,6 +42,11 @@ const formatDate = (value) => {
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 };
 
+const resolveAssetUrl = (path) => {
+    if (!path) return '';
+    return new URL(path, import.meta.url).href;
+};
+
 const appendLog = (message, level = 'info') => {
     const entry = document.createElement('p');
     entry.className = `log-entry ${level}`;
@@ -38,6 +54,14 @@ const appendLog = (message, level = 'info') => {
     entry.textContent = `[${time}] ${message}`;
     selectors.logStream.appendChild(entry);
     selectors.logStream.scrollTop = selectors.logStream.scrollHeight;
+    if (state.dialogLogStream) {
+        const mirror = entry.cloneNode(true);
+        state.dialogLogStream.appendChild(mirror);
+        if (state.dialogLogStream.children.length > state.logHistoryLimit) {
+            state.dialogLogStream.removeChild(state.dialogLogStream.firstChild);
+        }
+        state.dialogLogStream.scrollTop = state.dialogLogStream.scrollHeight;
+    }
 };
 
 const installConsoleCapture = () => {
@@ -63,6 +87,7 @@ const installConsoleCapture = () => {
 const startCapture = (boardLabel) => {
     if (!state.capturing) {
         state.capturing = true;
+        toggleDialogLogOverlay(true);
         appendLog(`Starting flashing session for ${boardLabel}`, 'info');
     }
 };
@@ -71,6 +96,7 @@ const stopCapture = (reason = 'Installer closed') => {
     if (!state.capturing) return;
     appendLog(reason, 'info');
     state.capturing = false;
+    toggleDialogLogOverlay(false);
 };
 
 const renderBoards = () => {
@@ -107,6 +133,56 @@ const renderNotes = (notes = []) => {
     });
 };
 
+const toggleDialogLogOverlay = (visible) => {
+    const overlay = state.dialogLogOverlay;
+    if (!overlay) return;
+    overlay.classList.toggle('visible', visible);
+    overlay.classList.toggle('hidden', !visible);
+};
+
+const createDialogLogOverlay = () => {
+    if (state.dialogLogOverlay) return;
+    const overlay = document.createElement('section');
+    overlay.id = 'install-dialog-log-overlay';
+    overlay.className = 'install-dialog-log-overlay hidden';
+
+    const header = document.createElement('div');
+    header.className = 'install-dialog-log-header';
+    header.innerHTML = '<span>Installer console</span>';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'install-dialog-log-close';
+    closeBtn.setAttribute('aria-label', 'Hide installer console');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => toggleDialogLogOverlay(false));
+    header.appendChild(closeBtn);
+
+    const stream = document.createElement('div');
+    stream.className = 'log-stream dialog';
+    stream.setAttribute('role', 'log');
+    stream.setAttribute('aria-live', 'polite');
+    stream.setAttribute('aria-relevant', 'additions');
+    stream.innerHTML = '<p class="muted">Installer console output will appear here.</p>';
+
+    const panel = document.createElement('div');
+    panel.className = 'install-dialog-log-panel';
+    panel.appendChild(header);
+    panel.appendChild(stream);
+
+    const slot = document.createElement('div');
+    slot.className = 'install-dialog-slot';
+    panel.appendChild(slot);
+
+    overlay.appendChild(panel);
+
+    state.dialogSlot = slot;
+    document.body.appendChild(overlay);
+
+    state.dialogLogOverlay = overlay;
+    state.dialogLogStream = stream;
+};
+
 const hydrateBoardDetails = (board) => {
     if (!board) return;
     state.selected = board;
@@ -119,7 +195,14 @@ const hydrateBoardDetails = (board) => {
     selectors.heroDate.textContent = formatDate(board.released);
     renderFiles(board.files);
     renderNotes(board.notes);
-    selectors.flashTrigger?.setAttribute('manifest', board.manifest);
+    const manifestUrl = resolveAssetUrl(board.manifest);
+    if (manifestUrl) {
+        selectors.installButton?.setAttribute('manifest', manifestUrl);
+        state.wifiPatcher?.updateBaseManifest(manifestUrl);
+    } else {
+        selectors.installButton?.removeAttribute('manifest');
+        state.wifiPatcher?.updateBaseManifest('');
+    }
 };
 
 const fetchBoards = async () => {
@@ -169,6 +252,9 @@ const attachEvents = () => {
 
     selectors.clearLogBtn.addEventListener('click', () => {
         selectors.logStream.innerHTML = '<p class="muted">Log cleared.</p>';
+        if (state.dialogLogStream) {
+            state.dialogLogStream.innerHTML = '<p class="muted">Log cleared.</p>';
+        }
     });
 };
 
@@ -177,6 +263,10 @@ const observeInstallerDialog = () => {
         const dialog = document.querySelector('ewt-install-dialog');
         if (dialog && !state.dialogOpen) {
             state.dialogOpen = true;
+            toggleDialogLogOverlay(true);
+            if (state.dialogSlot && dialog.parentElement !== state.dialogSlot) {
+                state.dialogSlot.appendChild(dialog);
+            }
             appendLog('Installer dialog opened. Follow the prompts to select the serial port.', 'info');
         } else if (!dialog && state.dialogOpen) {
             state.dialogOpen = false;
@@ -187,9 +277,18 @@ const observeInstallerDialog = () => {
 };
 
 const init = async () => {
+    createDialogLogOverlay();
     installConsoleCapture();
     attachEvents();
     observeInstallerDialog();
+    state.wifiPatcher = initWifiPatcher({
+        installButton: selectors.installButton,
+        openButton: selectors.wifiAcceptBtn,
+        dialog: selectors.wifiPatchDialog,
+        form: selectors.wifiForm,
+        statusEl: selectors.wifiStatus,
+        log: appendLog
+    });
     await fetchBoards();
     if (!('serial' in navigator)) {
         appendLog('Web Serial API is unavailable in this browser.', 'warn');

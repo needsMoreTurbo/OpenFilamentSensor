@@ -23,10 +23,10 @@
                     <span class="logo-text">CC</span>
                 </div>
                 <div class="title-container">
-                    <h1>Centauri Firmware Distributor</h1>
+                    <h1>OC-Filament Board Creation</h1>
                     <p class="powered-by">
                         <span class="status-dot"></span>
-                        Built with the same DNA as the dashboard experience
+                        Check Github for source and self-hosting options.
                     </p>
                 </div>
             </div>
@@ -41,26 +41,26 @@
         <section class="hero card">
             <div class="card-header">
                 <div>
-                    <p class="eyebrow">Release Pipeline</p>
-                    <h2>Flash the latest certified build to your ESP32</h2>
+                    <p class="eyebrow">Releases</p>
+                    <h2>Flash the latest build to your ESP32</h2>
                 </div>
-                <span class="card-header-icon">⚡</span>
+                <span class="card-header-icon"></span>
             </div>
             <p class="hero-copy">
-                Drop this container on any VM, point it at the binaries you ship, and share a single URL.
-                Users pick their board, connect over Web Serial, and watch the flashing output in real time.
+                Connect your board via USB, select the correct board below and then flash.
+                Wifi setup will need to be completed following every flash.
             </p>
             <div class="hero-grid">
                 <div>
-                    <p class="metric-label">Active firmware line</p>
+                    <p class="metric-label">Current release</p>
                     <p class="metric-value" id="activeFirmwareLabel">Loading…</p>
                 </div>
                 <div>
-                    <p class="metric-label">Last published</p>
+                    <p class="metric-label">Published</p>
                     <p class="metric-value" id="activeFirmwareDate">—</p>
                 </div>
                 <div>
-                    <p class="metric-label">Boards online</p>
+                    <p class="metric-label">Boards validated</p>
                     <p class="metric-value" id="boardCount">—</p>
                 </div>
             </div>
@@ -73,7 +73,7 @@
                         <p class="eyebrow">Board Selection</p>
                         <h3>Choose your hardware</h3>
                     </div>
-                    <span class="card-header-icon">🧭</span>
+                    <span class="card-header-icon"></span>
                 </div>
                 <div class="field-group">
                     <label for="boardSelect">Target board</label>
@@ -102,13 +102,35 @@
                 </div>
             </article>
 
+            <article class="card wifi-card">
+                <div class="card-header">
+                    <div>
+                        <p class="eyebrow">Wi-Fi override</p>
+                        <h3>Patch SSID &amp; password</h3>
+                    </div>
+                    <span class="card-header-icon"></span>
+                </div>
+                <p class="wifi-helper modified">
+                    This step is optional. You can provide your Wifi SSID and password in this form to skip AP
+                    setup. This uses a script to patch the released binary file in place on the fly - the form entry and
+                    patched binary are local to your browser - they are not transmitted outside of your local
+                    environment. If you are not comfortable with this, simply do not use this feature.
+                </p>
+                <button class="primary-btn" id="wifiAcceptBtn" type="button">
+                    Accept and provide credentials
+                </button>
+                <p class="wifi-status muted" id="wifiPatchStatus">
+                    Click "Accept and provide credentials" to begin the optional patch.
+                </p>
+            </article>
+
             <article class="card">
                 <div class="card-header">
                     <div>
                         <p class="eyebrow">Deploy</p>
                         <h3>Flash via Web Serial</h3>
                     </div>
-                    <span class="card-header-icon">🚀</span>
+                    <span class="card-header-icon"></span>
                 </div>
                 <div class="instructions">
                     <ol>
@@ -140,7 +162,7 @@
                         <p class="eyebrow">Release Notes</p>
                         <h3 id="releaseNotesTitle">Notes</h3>
                     </div>
-                    <span class="card-header-icon">📓</span>
+                    <span class="card-header-icon"></span>
                 </div>
                 <ul class="notes-list" id="notesList"></ul>
             </article>
@@ -163,12 +185,42 @@
         </section>
     </main>
 
+    <div id="wifiPatchDialog" class="wifi-dialog hidden">
+        <div class="wifi-dialog-backdrop" data-dialog-close></div>
+        <div class="wifi-dialog-panel">
+            <button class="wifi-dialog-close" data-dialog-close type="button">×</button>
+            <h3>Provide Wi-Fi credentials</h3>
+            <p class="wifi-dialog-note">
+                This step is optional. You can provide your Wifi SSID and password in this form to skip AP setup. This
+                uses a script to patch the released binary file in place on the fly – the form entry and patched binary
+                remain local to your browser and are never transmitted outside your environment.
+            </p>
+            <form id="wifiPatchForm" class="wifi-form" autocomplete="off">
+                <div class="field-group">
+                    <label for="wifiSsid">Wi-Fi SSID</label>
+                    <input id="wifiSsid" name="ssid" type="text" maxlength="20" value="your_ssid" required>
+                </div>
+                <div class="field-group">
+                    <label for="wifiPass">Wi-Fi password</label>
+                    <input id="wifiPass" name="passwd" type="password" maxlength="20" value="your_pass" required>
+                </div>
+                <div class="wifi-actions">
+                    <button class="primary-btn" type="submit">Patch firmware</button>
+                    <button class="ghost-btn" type="button" data-reset>Reset patch</button>
+                </div>
+            </form>
+            <p class="wifi-dialog-disclaimer">
+                DISCLAIMER: Use at your own risk, I cannot guarantee credential security. Check the Github repo for the
+                source files of this distributor.
+            </p>
+        </div>
+    </div>
+
     <footer>
         <div class="container footer-content">
-            <p>Centauri Carbon Motion Detector Distributor · v1</p>
+            <p>Open Centauri Filament Distributor · v1</p>
             <p>
-                Need to post a new build? Drop binaries under <code>distributor/firmware/&lt;board&gt;</code> and update
-                <code>boards.json</code>.
+                Visit <a href="https://github.com/harpua555/centauri-carbon-motion-detector">Github</a> for source code.
             </p>
         </div>
     </footer>

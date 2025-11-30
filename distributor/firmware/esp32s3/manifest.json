@@ -1,7 +1,7 @@
 {
-  "name": "Centauri Carbon Motion Detector (ESP32-S3)",
+  "name": "Centauri Carbon Motion Detector (ESP32-S3 merged generic)",
   "version": "1.3.0",
-  "build_id": "2025.11.27-s3",
+  "build_id": "2025.11.30-s3-merged",
   "new_install_prompt_erase": true,
   "builds": [
     {

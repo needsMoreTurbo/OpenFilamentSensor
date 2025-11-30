@@ -1,7 +1,7 @@
 {
   "ssid": "twentycharactrstring",
   "passwd": "twentycharactrstring",
-  "elegooip": "twentycharactrstring",
+  "elegooip": "1.1.1.1",
   "ap_mode": false,
   "has_connected": false,
   "movement_mm_per_pulse": 3.015,
