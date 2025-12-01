@@ -97,6 +97,7 @@ static const SettingField kSettingFields[] = {
                  offsetof(user_settings, detection_soft_jam_time_ms), 10000),
     makeIntField("detection_hard_jam_time_ms",
                  offsetof(user_settings, detection_hard_jam_time_ms), 5000),
+    makeIntField("detection_mode", offsetof(user_settings, detection_mode), 0),
     makeIntField("sdcp_loss_behavior", offsetof(user_settings, sdcp_loss_behavior), 2),
     makeIntField("flow_telemetry_stale_ms", offsetof(user_settings, flow_telemetry_stale_ms), 1000),
     makeIntField("ui_refresh_interval_ms", offsetof(user_settings, ui_refresh_interval_ms), 1000),
@@ -236,6 +237,7 @@ SettingsManager::SettingsManager()
     settings.detection_hard_jam_mm      = 5.0f;   // 5mm expected with zero movement = hard jam
     settings.detection_soft_jam_time_ms = 7000;   // 7 seconds to signal slow clog (balanced for quick detection)
     settings.detection_hard_jam_time_ms = 3000;   // 3 seconds of negligible flow (quick response to complete jams)
+    settings.detection_mode = 0;                  // 0 = both hard + soft detection
     settings.sdcp_loss_behavior         = 2;
     settings.flow_telemetry_stale_ms    = 1000;
     settings.ui_refresh_interval_ms     = 1000;
@@ -288,6 +290,15 @@ bool SettingsManager::load()
     else if (settings.log_level > 2)
     {
         settings.log_level = 2;
+    }
+
+    if (settings.detection_mode < 0)
+    {
+        settings.detection_mode = 0;
+    }
+    else if (settings.detection_mode > 2)
+    {
+        settings.detection_mode = 2;
     }
 
     // Update logger with loaded log level
@@ -403,6 +414,11 @@ int SettingsManager::getDetectionSoftJamTimeMs()
 int SettingsManager::getDetectionHardJamTimeMs()
 {
     return getSettings().detection_hard_jam_time_ms;
+}
+
+int SettingsManager::getDetectionMode()
+{
+    return getSettings().detection_mode;
 }
 
 int SettingsManager::getSdcpLossBehavior()
@@ -578,6 +594,21 @@ void SettingsManager::setDetectionHardJamTimeMs(int timeMs)
     if (!isLoaded)
         load();
     settings.detection_hard_jam_time_ms = timeMs;
+}
+
+void SettingsManager::setDetectionMode(int mode)
+{
+    if (!isLoaded)
+        load();
+    if (mode < 0)
+    {
+        mode = 0;
+    }
+    else if (mode > 2)
+    {
+        mode = 2;
+    }
+    settings.detection_mode = mode;
 }
 
 void SettingsManager::setSdcpLossBehavior(int behavior)

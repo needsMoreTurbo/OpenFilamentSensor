@@ -25,6 +25,13 @@ struct JamState {
     bool graceActive;         // True if any grace is active
 };
 
+// Detection mode controls which jam checks are active
+enum class DetectionMode : uint8_t {
+    BOTH = 0,     // Both hard and soft jams are active
+    HARD_ONLY = 1, // Only hard jam detection is active
+    SOFT_ONLY = 2  // Only soft jam detection is active
+};
+
 // Configuration for jam detection (stored separately to save RAM)
 struct JamConfig {
     float ratioThreshold;     // Soft jam threshold (e.g., 0.70 = 70% pass ratio)
@@ -33,6 +40,7 @@ struct JamConfig {
     uint16_t hardJamTimeMs;   // Hard jam accumulation time (ms)
     uint16_t graceTimeMs;     // Grace period after print start (ms)
     uint16_t startTimeoutMs;  // Total timeout before detection starts (ms)
+    DetectionMode detectionMode = DetectionMode::BOTH;
 };
 
 /**

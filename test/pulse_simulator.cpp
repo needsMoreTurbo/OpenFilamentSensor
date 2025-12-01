@@ -22,6 +22,8 @@
 #include <cstring>
 #include <cctype>
 
+#include "generated_test_settings.h"
+
 // Mock Arduino millis() function
 unsigned long _mockMillis = 0;
 unsigned long millis() { return _mockMillis; }
@@ -60,15 +62,51 @@ struct TestResult {
 std::vector<TestResult> testResults;
 
 // Simulation parameters
-const float MM_PER_PULSE = 2.88f;
-const int CHECK_INTERVAL_MS = 1000;
-const float RATIO_THRESHOLD = 0.25f;
-const float HARD_JAM_MM = 5.0f;
-const int SOFT_JAM_TIME_MS = 10000;
-const int HARD_JAM_TIME_MS = 5000;
-const int GRACE_PERIOD_MS = 500;
-const int TRACKING_WINDOW_MS = 3000;
-const float RESUME_GRACE_MIN_MOVEMENT_MM = 1.0f;
+// Constants with defaults. Generated header can override them via macros.
+#ifndef TEST_MM_PER_PULSE
+#define TEST_MM_PER_PULSE 2.88f
+#endif
+const float MM_PER_PULSE = TEST_MM_PER_PULSE;
+
+#ifndef TEST_CHECK_INTERVAL_MS
+#define TEST_CHECK_INTERVAL_MS 1000
+#endif
+const int CHECK_INTERVAL_MS = TEST_CHECK_INTERVAL_MS;
+
+#ifndef TEST_RATIO_THRESHOLD
+#define TEST_RATIO_THRESHOLD 0.25f
+#endif
+const float RATIO_THRESHOLD = TEST_RATIO_THRESHOLD;
+
+#ifndef TEST_HARD_JAM_MM
+#define TEST_HARD_JAM_MM 5.0f
+#endif
+const float HARD_JAM_MM = TEST_HARD_JAM_MM;
+
+#ifndef TEST_SOFT_JAM_TIME_MS
+#define TEST_SOFT_JAM_TIME_MS 10000
+#endif
+const int SOFT_JAM_TIME_MS = TEST_SOFT_JAM_TIME_MS;
+
+#ifndef TEST_HARD_JAM_TIME_MS
+#define TEST_HARD_JAM_TIME_MS 5000
+#endif
+const int HARD_JAM_TIME_MS = TEST_HARD_JAM_TIME_MS;
+
+#ifndef TEST_GRACE_PERIOD_MS
+#define TEST_GRACE_PERIOD_MS 500
+#endif
+const int GRACE_PERIOD_MS = TEST_GRACE_PERIOD_MS;
+
+#ifndef TEST_TRACKING_WINDOW_MS
+#define TEST_TRACKING_WINDOW_MS 3000
+#endif
+const int TRACKING_WINDOW_MS = TEST_TRACKING_WINDOW_MS;
+
+#ifndef TEST_RESUME_GRACE_MIN_MOVEMENT_MM
+#define TEST_RESUME_GRACE_MIN_MOVEMENT_MM 1.0f
+#endif
+const float RESUME_GRACE_MIN_MOVEMENT_MM = TEST_RESUME_GRACE_MIN_MOVEMENT_MM;
 const char* LOG_REPLAY_PATH = "../test/fixtures/log_for_test.txt";
 const char* LOG_REPLAY_GCODE = "../test/fixtures/ECC_0.4_Cube 8_PLA0.2_1m33s.gcode";
 

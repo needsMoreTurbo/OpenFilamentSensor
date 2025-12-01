@@ -15,6 +15,7 @@
   "detection_soft_jam_time_ms": 7000,
   "detection_hard_jam_mm": 5.0,
   "detection_hard_jam_time_ms": 2000,
+  "detection_mode": 0,
   "start_print_timeout": 15000,
   "pause_on_runout": true,
   "enabled": true,

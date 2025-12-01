@@ -18,9 +18,10 @@ struct user_settings
     int    detection_grace_period_ms;    // Grace period after move command before checking jams
     float  detection_ratio_threshold;    // Soft jam: pass ratio threshold (0.25 = 25% actual allowed before alert)
     float  detection_hard_jam_mm;        // Hard jam: mm expected with zero movement to trigger
-    int    detection_soft_jam_time_ms;   // Soft jam: how long ratio must stay bad (ms, e.g., 3000 = 3 sec)
-    int    detection_hard_jam_time_ms;   // Hard jam: how long zero movement required (ms, e.g., 2000 = 2 sec)
-    int    sdcp_loss_behavior;
+      int    detection_soft_jam_time_ms;   // Soft jam: how long ratio must stay bad (ms, e.g., 3000 = 3 sec)
+      int    detection_hard_jam_time_ms;   // Hard jam: how long zero movement required (ms, e.g., 2000 = 2 sec)
+      int    detection_mode;               // 0=Soft+Hard, 1=Hard only, 2=Soft only
+      int    sdcp_loss_behavior;
     int    flow_telemetry_stale_ms;
     int    ui_refresh_interval_ms;
     int    log_level;                 // 0=Normal, 1=Verbose, 2=Pin Values
@@ -65,10 +66,11 @@ class SettingsManager
     bool   getHasConnected();
     float  getDetectionLengthMM();          // DEPRECATED: Use ratio-based detection
     int    getDetectionGracePeriodMs();     // Grace period for look-ahead moves
-    float  getDetectionRatioThreshold();    // Soft jam ratio threshold
-    float  getDetectionHardJamMm();         // Hard jam threshold
-    int    getDetectionSoftJamTimeMs();     // Soft jam duration threshold
-    int    getDetectionHardJamTimeMs();     // Hard jam duration threshold
+      float  getDetectionRatioThreshold();    // Soft jam ratio threshold
+      float  getDetectionHardJamMm();         // Hard jam threshold
+      int    getDetectionSoftJamTimeMs();     // Soft jam duration threshold
+      int    getDetectionHardJamTimeMs();     // Hard jam duration threshold
+      int    getDetectionMode();              // Detection mode selector (0=both,1=hard,2=soft)
     int    getSdcpLossBehavior();
     int    getFlowTelemetryStaleMs();
     int    getUiRefreshIntervalMs();
@@ -93,8 +95,9 @@ class SettingsManager
     void setDetectionGracePeriodMs(int periodMs);      // Grace period setter
     void setDetectionRatioThreshold(float threshold);  // Soft jam ratio threshold setter
     void setDetectionHardJamMm(float mmThreshold);     // Hard jam threshold setter
-    void setDetectionSoftJamTimeMs(int timeMs);        // Soft jam duration setter
-    void setDetectionHardJamTimeMs(int timeMs);        // Hard jam duration setter
+      void setDetectionSoftJamTimeMs(int timeMs);        // Soft jam duration setter
+      void setDetectionHardJamTimeMs(int timeMs);        // Hard jam duration setter
+      void setDetectionMode(int mode);                    // Detection mode selector
     void setSdcpLossBehavior(int behavior);
     void setFlowTelemetryStaleMs(int staleMs);
     void setUiRefreshIntervalMs(int intervalMs);

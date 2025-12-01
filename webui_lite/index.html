@@ -1558,21 +1558,31 @@
                         <p class="form-help" style="margin-left: 36px; margin-top: 8px;">Automatically adjusts the 'Filament Movement per Pulse' value based on actual print data when a print completes. Enable this to fine-tune sensor accuracy over time. Requires at least one complete print to calibrate.</p>
                     </div>
 
-                    <h3 class="section-title">Logging Settings</h3>
+                      <h3 class="section-title">Logging Settings</h3>
 
-                    <div class="form-group">
-                        <label class="form-label">Log Level</label>
-                        <select class="form-select" id="log_level">
-                            <option value="0" ${(currentSettings.log_level === 0 || currentSettings.log_level === undefined) ? 'selected' : ''}>Normal</option>
-                            <option value="1" ${currentSettings.log_level == 1 ? 'selected' : ''}>Verbose</option>
-                            <option value="2" ${currentSettings.log_level == 2 ? 'selected' : ''}>Pin Values (Emergency Debug)</option>
-                        </select>
-                        <p class="form-help">Normal = production logging (startup, successes, failures, basic stats). Verbose = detailed flow state and telemetry. Pin Values = raw pin states (very chatty, emergency debugging only).</p>
-                    </div>
+                      <div class="form-group">
+                          <label class="form-label">Log Level</label>
+                          <select class="form-select" id="log_level">
+                              <option value="0" ${(currentSettings.log_level === 0 || currentSettings.log_level === undefined) ? 'selected' : ''}>Normal</option>
+                              <option value="1" ${currentSettings.log_level == 1 ? 'selected' : ''}>Verbose</option>
+                              <option value="2" ${currentSettings.log_level == 2 ? 'selected' : ''}>Pin Values (Emergency Debug)</option>
+                          </select>
+                          <p class="form-help">Normal = production logging (startup, successes, failures, basic stats). Verbose = detailed flow state and telemetry. Pin Values = raw pin states (very chatty, emergency debugging only).</p>
+                      </div>
 
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="suppress_pause_commands" ${currentSettings.suppress_pause_commands ? 'checked' : ''}>
-                        <label class="form-label" for="suppress_pause_commands" style="margin: 0;">Suppress Cancel Messages</label>
+                      <div class="form-group">
+                          <label class="form-label">Jam Detection Mode</label>
+                          <select class="form-select" id="detection_mode">
+                              <option value="0" ${(currentSettings.detection_mode === 0 || currentSettings.detection_mode === undefined) ? 'selected' : ''}>Soft + Hard (default)</option>
+                              <option value="1" ${currentSettings.detection_mode == 1 ? 'selected' : ''}>Hard only (ignore soft detection)</option>
+                              <option value="2" ${currentSettings.detection_mode == 2 ? 'selected' : ''}>Soft only (ignore hard detection)</option>
+                          </select>
+                          <p class="form-help">Choose how the firmware evaluates jams; use Hard only to focus on total blockages or Soft only to watch for gradual underextrusion.</p>
+                      </div>
+
+                      <div class="form-group checkbox-group">
+                          <input type="checkbox" id="suppress_pause_commands" ${currentSettings.suppress_pause_commands ? 'checked' : ''}>
+                          <label class="form-label" for="suppress_pause_commands" style="margin: 0;">Suppress Cancel Messages</label>
                         <p class="form-help" style="margin-left: 36px; margin-top: 8px;">Prevent the sensor from sending pause/cancel commands to the printer. Useful for testing and development. When enabled, pause attempts will be logged but not sent.</p>
                     </div>
 
@@ -1619,11 +1629,12 @@
                     start_print_timeout: parseInt(document.getElementById('start_print_timeout').value) * 1000,
                     enabled: document.getElementById('enabled').checked,
                     detection_grace_period_ms: parseInt(document.getElementById('detection_grace_period_ms').value),
-                    detection_ratio_threshold: parseFloat(document.getElementById('detection_ratio_threshold').value) / 100,
-                    detection_hard_jam_mm: parseFloat(document.getElementById('detection_hard_jam_mm').value),
-                    detection_soft_jam_time_ms: parseInt(document.getElementById('detection_soft_jam_time_ms').value) * 1000,
-                    detection_hard_jam_time_ms: parseInt(document.getElementById('detection_hard_jam_time_ms').value) * 1000,
-                    sdcp_loss_behavior: parseInt(document.getElementById('sdcp_loss_behavior').value),
+                      detection_ratio_threshold: parseFloat(document.getElementById('detection_ratio_threshold').value) / 100,
+                      detection_hard_jam_mm: parseFloat(document.getElementById('detection_hard_jam_mm').value),
+                      detection_soft_jam_time_ms: parseInt(document.getElementById('detection_soft_jam_time_ms').value) * 1000,
+                      detection_hard_jam_time_ms: parseInt(document.getElementById('detection_hard_jam_time_ms').value) * 1000,
+                      detection_mode: parseInt(document.getElementById('detection_mode').value),
+                      sdcp_loss_behavior: parseInt(document.getElementById('sdcp_loss_behavior').value),
                     flow_telemetry_stale_ms: parseInt(document.getElementById('flow_telemetry_stale_ms').value),
                     ui_refresh_interval_ms: parseInt(document.getElementById('ui_refresh_interval_ms').value),
                     log_level: parseInt(document.getElementById('log_level').value),

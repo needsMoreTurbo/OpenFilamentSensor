@@ -252,10 +252,26 @@ JamState JamDetector::update(float expectedDistance, float actualDistance,
     lastPulseCount = movementPulseCount;
 
     // Evaluate jam conditions (only when not in grace)
-    state.hardJamTriggered = evaluateHardJam(expectedDistance, passRatio,
-                                            newPulseSinceLastEval, elapsedMs, config);
-    state.softJamTriggered = evaluateSoftJam(expectedDistance, deficit, passRatio,
-                                            elapsedMs, config);
+    bool allowHard = (config.detectionMode != DetectionMode::SOFT_ONLY);
+    bool allowSoft = (config.detectionMode != DetectionMode::HARD_ONLY);
+
+    if (allowHard) {
+        state.hardJamTriggered = evaluateHardJam(expectedDistance, passRatio,
+                                                 newPulseSinceLastEval, elapsedMs, config);
+    } else {
+        hardJamAccumulatedMs = 0;
+        state.hardJamPercent = 0.0f;
+        state.hardJamTriggered = false;
+    }
+
+    if (allowSoft) {
+        state.softJamTriggered = evaluateSoftJam(expectedDistance, deficit, passRatio,
+                                                 elapsedMs, config);
+    } else {
+        softJamAccumulatedMs = 0;
+        state.softJamPercent = 0.0f;
+        state.softJamTriggered = false;
+    }
 
     // Update jammed state
     bool wasJammed = state.jammed;

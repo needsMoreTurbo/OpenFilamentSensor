@@ -52,6 +52,7 @@ JamConfig buildJamConfigFromSettings()
 
     config.graceTimeMs    = settingsManager.getDetectionGracePeriodMs();
     config.startTimeoutMs = settingsManager.getStartPrintTimeout();
+    config.detectionMode   = static_cast<DetectionMode>(settingsManager.getDetectionMode());
     return config;
 }
 }  // namespace
