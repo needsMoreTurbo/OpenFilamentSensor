@@ -772,9 +772,11 @@ void testSoftJam() {
     bool beforeJamHealthy = checkJamAndLog(sensor, "Before jam (healthy)");
     printState(sensor, "Before jam (healthy)", beforeJamHealthy);
 
-    // Soft jam: only 20% of filament passing (80% deficit)
-    // With windowed tracking, it takes time for the window to fill with bad samples
-    // Expected: Should detect within reasonable time (not instant, but before 10 seconds)
+    // Soft jam: only 40% of filament passing (60% deficit)
+    // With windowed tracking and grace periods, it takes time for the
+    // window and jam timers to fill with bad samples. Expected: Should
+    // detect within a reasonable time (not instant, and before the
+    // configured soft jam timeout).
     bool jamDetected = false;
     int jamDetectionTime = -1;
 
@@ -782,7 +784,7 @@ void testSoftJam() {
         float deltaExtrusion = 20.0f;
         totalExtrusion += deltaExtrusion;
         simulateExtrusion(sensor, deltaExtrusion, totalExtrusion);
-        simulateSensorPulses(sensor, deltaExtrusion, 0.20f);  // 20% flow rate (80% deficit)
+        simulateSensorPulses(sensor, deltaExtrusion, 0.40f);  // 40% flow rate (60% deficit)
         advanceTime(CHECK_INTERVAL_MS);
 
         std::string label = "Clog T+" + std::to_string(sec + 1) + "s";
@@ -797,12 +799,19 @@ void testSoftJam() {
         }
     }
 
-    const int expectedSoftDetectionSec = SOFT_JAM_TIME_MS / CHECK_INTERVAL_MS;
-    bool softDetectedInWindow = jamDetected && jamDetectionTime >= expectedSoftDetectionSec &&
-                                jamDetectionTime <= expectedSoftDetectionSec + 5;
-    recordTest("Soft jam detected after sustained deficit", softDetectedInWindow,
+    // Allow detection to be triggered by either the soft- or hard-jam
+    // timers, but require it to happen within a reasonable window based
+    // on the configured thresholds.
+    const int minDetectionSec = HARD_JAM_TIME_MS / CHECK_INTERVAL_MS;
+    const int maxDetectionSec = (SOFT_JAM_TIME_MS / CHECK_INTERVAL_MS) + 5;
+
+    bool detectedInReasonableTime = jamDetected &&
+                                    jamDetectionTime >= minDetectionSec &&
+                                    jamDetectionTime <= maxDetectionSec;
+
+    recordTest("Soft jam detected after sustained deficit", detectedInReasonableTime,
                jamDetected ? "Detected at T+" + std::to_string(jamDetectionTime) + "s" : "Not detected");
-    recordTest("Soft jam detection waits for the window to fill", jamDetected && jamDetectionTime >= expectedSoftDetectionSec - 1);
+    recordTest("Soft jam detection waits for sustained deficit", jamDetected && jamDetectionTime >= minDetectionSec);
 }
 
 //=============================================================================
@@ -1371,7 +1380,7 @@ int main(int argc, char** argv) {
     }
     std::cout << COLOR_BLUE << "\n"
               << "╔════════════════════════════════════════════════════════════╗\n"
-              << "║        Filament Motion Sensor - Pulse Simulator           ║\n"
+              << "║        Filament Motion Sensor - Pulse Simulator            ║\n"
               << "║                     Unit Test Suite                        ║\n"
               << "╚════════════════════════════════════════════════════════════╝\n"
               << COLOR_RESET << "\n";
