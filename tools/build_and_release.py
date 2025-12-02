@@ -300,6 +300,68 @@ def increment_version(repo_root: str, increment_type: Optional[str]) -> Optional
     return version_str
 
 
+def get_version_string(repo_root: str) -> str:
+    """Return the current version string from .version as 'X.Y.Z'."""
+    major, minor, build = read_version_file(repo_root)
+    return f"{major}.{minor}.{build}"
+
+
+def load_versioning_file(versioning_path: str) -> Optional[dict]:
+    """
+    Read distributor/assets/versioning JSON. Returns a dict or None on parse error.
+    Creates a default structure if the file is missing.
+    """
+    if not os.path.exists(versioning_path):
+        return {"version": None, "build_date": None, "release_notes": [], "boards": {}}
+
+    try:
+        with open(versioning_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+        print(f"WARNING: Unable to parse versioning file ({versioning_path}): {exc}")
+    except OSError as exc:  # pragma: no cover - defensive
+        print(f"WARNING: Unable to read versioning file ({versioning_path}): {exc}")
+
+    return None
+
+
+def update_versioning_metadata(repo_root: str, version: str) -> None:
+    """
+    Update distributor/assets/versioning with the current version and build date.
+    Preserves existing release notes and board notes.
+    """
+    versioning_path = os.path.join(repo_root, "distributor", "assets", "versioning")
+    payload = load_versioning_file(versioning_path)
+    if payload is None:
+        print("Skipping distributor versioning update; unable to read current file.")
+        return
+
+    payload["version"] = version
+    payload["build_date"] = datetime.now().strftime("%Y-%m-%d")
+
+    try:
+        with open(versioning_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+            f.write("\n")
+        print(f"Updated distributor versioning file: {version} @ {payload['build_date']}")
+    except OSError as exc:  # pragma: no cover - defensive
+        print(f"WARNING: Unable to write versioning file ({versioning_path}): {exc}")
+
+
+def resolve_version_increment(version_action: Optional[str], version_type: str) -> Optional[str]:
+    """
+    Decide which version increment to apply based on CLI flags.
+    Returns the increment type ('build'|'ver'|'release') or None to skip.
+    """
+    if version_action == "skip":
+        return None
+    if version_action in ("build", "ver", "release"):
+        return version_action
+    if version_type in ("build", "ver", "release"):
+        return version_type
+    return None
+
+
 def copy_to_distributor(repo_root: str, board_env: str, ignore_secrets: bool) -> None:
     """
     Copy firmware_merged.bin to distributor directory if secrets were ignored.
@@ -483,8 +545,12 @@ def build_firmware(repo_root: str, board_env: str, ignore_secrets: bool, version
         sys.exit(1)
 
     # Handle version increment
-    if version_action:
-        increment_version(repo_root, version_type)
+    increment_choice = resolve_version_increment(version_action, version_type)
+    if increment_choice:
+        increment_version(repo_root, increment_choice)
+
+    current_version = get_version_string(repo_root)
+    update_versioning_metadata(repo_root, current_version)
 
     print(f"\n=== Building Firmware for {board_env} ===")
     print(f"Chip family: {get_chip_family_for_board(board_env)}")

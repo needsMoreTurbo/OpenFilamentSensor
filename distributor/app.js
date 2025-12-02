@@ -5,7 +5,6 @@ const selectors = {
     boardStatus: document.getElementById('boardStatus'),
     boardVersion: document.getElementById('boardVersion'),
     boardRelease: document.getElementById('boardRelease'),
-    fileList: document.getElementById('fileList'),
     notesList: document.getElementById('notesList'),
     releaseNotesTitle: document.getElementById('releaseNotesTitle'),
     installButton: document.getElementById('installButton'),
@@ -33,7 +32,26 @@ const state = {
     dialogSlot: null,
     logHistoryLimit: 400,
     consoleOriginals: {},
-    wifiPatcher: null
+    wifiPatcher: null,
+    versioning: null
+};
+
+const normalizeVersioning = (raw) => {
+    if (!raw || typeof raw !== 'object') {
+        return { version: null, buildDate: null, status: null, releaseNotes: [], boards: {} };
+    }
+
+    const boards = raw.boards && typeof raw.boards === 'object' && !Array.isArray(raw.boards)
+        ? raw.boards
+        : {};
+
+    return {
+        version: typeof raw.version === 'string' ? raw.version : null,
+        buildDate: typeof raw.build_date === 'string' ? raw.build_date : null,
+        status: typeof raw.status === 'string' ? raw.status : null,
+        releaseNotes: Array.isArray(raw.release_notes) ? raw.release_notes.filter(Boolean) : [],
+        boards
+    };
 };
 
 const formatDate = (value) => {
@@ -122,17 +140,27 @@ const renderBoards = () => {
             option.textContent = board.variant;
             optgroup.appendChild(option);
         });
-        selectors.boardSelect.appendChild(optgroup);
+    selectors.boardSelect.appendChild(optgroup);
     });
 };
 
-const renderFiles = (files = []) => {
-    selectors.fileList.innerHTML = '';
-    files.forEach((file) => {
-        const item = document.createElement('li');
-        item.textContent = file;
-        selectors.fileList.appendChild(item);
-    });
+const applyVersioningToBoard = (board) => {
+    if (!board) return board;
+    if (!state.versioning) {
+        return { ...board, notes: Array.isArray(board.notes) ? board.notes : [] };
+    }
+
+    const overrides = state.versioning.boards?.[board.id] || {};
+    const boardNotes = Array.isArray(overrides.release_notes) ? overrides.release_notes.filter(Boolean) : [];
+    const notes = [...state.versioning.releaseNotes, ...boardNotes];
+
+    return {
+        ...board,
+        version: overrides.version || state.versioning.version || board.version,
+        status: overrides.status || state.versioning.status || board.status,
+        released: overrides.build_date || state.versioning.buildDate || board.released,
+        notes
+    };
 };
 
 const renderNotes = (notes = []) => {
@@ -209,31 +237,34 @@ const updateButtonStates = () => {
 const hydrateBoardDetails = (board) => {
     if (!board) {
         state.selected = null;
-        selectors.boardStatus.textContent = '—';
+        selectors.boardStatus.textContent = '--';
         selectors.boardStatus.dataset.state = 'unknown';
-        selectors.boardVersion.textContent = '—';
-        selectors.boardRelease.textContent = '—';
+        selectors.boardVersion.textContent = '--';
+        selectors.boardRelease.textContent = '--';
         selectors.releaseNotesTitle.textContent = 'Release notes';
         selectors.heroLabel.textContent = 'Please select a board';
-        selectors.heroDate.textContent = '—';
-        selectors.fileList.innerHTML = '<li style="color: var(--text-secondary);">Select a board to view files</li>';
+        selectors.heroDate.textContent = '--';
         selectors.notesList.innerHTML = '<li style="color: var(--text-secondary);">Select a board to view release notes</li>';
         updateButtonStates();
         selectors.installButton?.removeAttribute('manifest');
         state.wifiPatcher?.updateBaseManifest('');
         return;
     }
+
     state.selected = board;
-    selectors.boardStatus.textContent = board.status || 'unknown';
-    selectors.boardStatus.dataset.state = board.status || 'unknown';
-    selectors.boardVersion.textContent = board.version || '—';
+    const status = board.status || state.versioning?.status || 'unknown';
+    const version = board.version || state.versioning?.version || '--';
+
+    selectors.boardStatus.textContent = status;
+    selectors.boardStatus.dataset.state = status;
+    selectors.boardVersion.textContent = version;
     selectors.boardRelease.textContent = formatDate(board.released);
     selectors.releaseNotesTitle.textContent = `${board.variant} release notes`;
     selectors.heroLabel.textContent = board.variant;
     selectors.heroDate.textContent = formatDate(board.released);
-    renderFiles(board.files);
     renderNotes(board.notes);
     updateButtonStates();
+
     const manifestUrl = resolveAssetUrl(board.manifest);
     if (manifestUrl) {
         selectors.installButton?.setAttribute('manifest', manifestUrl);
@@ -249,7 +280,8 @@ const fetchBoards = async () => {
         const response = await fetch('./firmware/boards.json', { cache: 'no-store' });
         if (!response.ok) throw new Error(`failed to load board list (${response.status})`);
         const data = await response.json();
-        state.boards = data.boards || [];
+        const boards = data.boards || [];
+        state.boards = boards.map(applyVersioningToBoard);
         selectors.boardCount.textContent = state.boards.length;
         renderBoards();
         // Start with empty selection
@@ -261,6 +293,19 @@ const fetchBoards = async () => {
         selectors.boardSelect.disabled = true;
         selectors.flashTrigger.disabled = true;
         selectors.downloadOtaBtn.disabled = true;
+    }
+};
+
+const fetchVersioning = async () => {
+    try {
+        const response = await fetch('./assets/versioning', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`failed to load versioning (${response.status})`);
+        const text = await response.text();
+        const parsed = JSON.parse(text);
+        state.versioning = normalizeVersioning(parsed);
+    } catch (error) {
+        state.versioning = null;
+        appendLog(`Version info unavailable; using board metadata instead: ${error.message}`, 'warn');
     }
 };
 
@@ -434,6 +479,7 @@ const init = async () => {
         statusEl: selectors.wifiStatus,
         log: appendLog
     });
+    await fetchVersioning();
     await fetchBoards();
     if (!('serial' in navigator)) {
         appendLog('Web Serial API is unavailable in this browser.', 'warn');

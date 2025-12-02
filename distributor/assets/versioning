@@ -1,0 +1,21 @@
+{
+  "version": "0.3.14",
+  "build_date": "2025-12-02",
+  "status": "experimental",
+  "release_notes": [
+    "First closed alpha",
+    "Distributor still in progress",
+    "Contact on Discord with issues/suggestions"
+  ],
+  "boards": {
+    "esp32s3": {
+      "release_notes": []
+    },
+    "esp32c3mini": {
+      "status": "experimental",
+      "release_notes": [
+        "OTA currently not supported"
+      ]
+    }
+  }
+}
