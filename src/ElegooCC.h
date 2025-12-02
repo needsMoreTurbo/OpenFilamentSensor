@@ -178,6 +178,7 @@ class ElegooCC
 
     // Tracking state (for UI freeze on pause)
     bool          trackingFrozen;
+    bool          hasBeenPaused;
 
     // Command tracking
     unsigned long lastPauseRequestMs;

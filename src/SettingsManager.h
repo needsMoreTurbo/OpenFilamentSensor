@@ -28,6 +28,7 @@ struct user_settings
     bool   suppress_pause_commands;   // Suppress pause/cancel commands (for testing/development)
     float  movement_mm_per_pulse;
     bool   auto_calibrate_sensor;  // Auto-calibrate mm_per_pulse at print end
+    float  pulse_reduction_percent;  // Pulse reduction for testing (0-100, default 100)
     float  purge_filament_mm;
     bool   test_recording_mode;    // Enable CSV test data recording to ./condensed directory
 };
@@ -81,6 +82,7 @@ class SettingsManager
     bool   getPinDebugLogging();               // Returns true if log level >= 2
     float  getMovementMmPerPulse();
     bool   getAutoCalibrateSensor();
+    float  getPulseReductionPercent();         // Get pulse reduction percentage (0-100)
     bool   getTestRecordingMode();             // Get test recording mode state
 
     void setSSID(const String &ssid);
@@ -105,6 +107,7 @@ class SettingsManager
     void setSuppressPauseCommands(bool suppress);  // Set pause command suppression
     void setMovementMmPerPulse(float mmPerPulse);
     void setAutoCalibrateSensor(bool autoCal);
+    void setPulseReductionPercent(float percent);   // Set pulse reduction percentage (0-100)
     void setTestRecordingMode(bool enabled);       // Enable/disable test recording mode
 
     String toJson(bool includePassword = true);

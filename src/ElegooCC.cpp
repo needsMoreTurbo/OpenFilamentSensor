@@ -122,7 +122,9 @@ ElegooCC::ElegooCC()
     printCandidateSawLeveling     = false;
     printCandidateConditionsMet   = false;
     printCandidateIdleSinceMs     = 0;
+    printCandidateIdleSinceMs     = 0;
     trackingFrozen                = false;
+    hasBeenPaused                 = false;
     motionSensor.reset();
 
     lastPauseRequestMs = 0;
@@ -289,18 +291,28 @@ void ElegooCC::handleStatus(JsonDocument &doc)
             // Track preparation sequence for new-print detection.
             updatePrintStartCandidate(previousStatus, newStatus);
 
+            // Update paused state tracking
+            if (newStatus == SDCP_PRINT_STATUS_PAUSED || newStatus == SDCP_PRINT_STATUS_PAUSING)
+            {
+                hasBeenPaused = true;
+            }
+            else if (newStatus == SDCP_PRINT_STATUS_STOPED || 
+                     newStatus == SDCP_PRINT_STATUS_COMPLETE || 
+                     newStatus == SDCP_PRINT_STATUS_IDLE)
+            {
+                hasBeenPaused = false;
+            }
+
             bool wasPrinting   = (printStatus == SDCP_PRINT_STATUS_PRINTING);
             bool isPrintingNow = (newStatus == SDCP_PRINT_STATUS_PRINTING);
 
             if (isPrintingNow)
             {
                 // Transition into PRINTING.
-                // If we previously issued a jam-driven pause, treat the next
-                // PRINTING state as a resume regardless of any intermediate
+                // If we previously issued a jam-driven pause OR we have seen a paused state,
+                // treat the next PRINTING state as a resume regardless of any intermediate
                 // statuses (e.g. HEATING or other transitional codes).
-                if (jamDetector.isPauseRequested() ||
-                    printStatus == SDCP_PRINT_STATUS_PAUSED ||
-                    printStatus == SDCP_PRINT_STATUS_PAUSING)
+                if (jamDetector.isPauseRequested() || hasBeenPaused)
                 {
                     logger.log("Print status changed to printing (resume)");
                     trackingFrozen = false;
@@ -378,9 +390,7 @@ void ElegooCC::handleStatus(JsonDocument &doc)
                         totalTicks, expectedFilamentMM, actualFilamentMM, finalDeficit,
                         movementPulseCount);
 
-                    // Auto-calibration: calculate mm_per_pulse from print data
-                    // IMPORTANT: Only calibrate on prints with good flow quality (>90%)
-                    // to avoid learning from jammed/under-extruding prints
+                    // Auto-calibration logic...
                     if (settingsManager.getAutoCalibrateSensor() && movementPulseCount > 0 &&
                         expectedFilamentMM > 50.0f)
                     {
@@ -441,17 +451,23 @@ void ElegooCC::handleStatus(JsonDocument &doc)
                     resetFilamentTracking();
                 }
             }
+            else if ((printStatus == SDCP_PRINT_STATUS_PAUSED || printStatus == SDCP_PRINT_STATUS_PAUSING) &&
+                     (newStatus == SDCP_PRINT_STATUS_STOPED || newStatus == SDCP_PRINT_STATUS_COMPLETE || newStatus == SDCP_PRINT_STATUS_IDLE))
+            {
+                 logger.log("Print stopped from paused state, resetting filament tracking");
+                 resetFilamentTracking();
+            }
         }
-    printStatus  = newStatus;
-    bool nowPrinting = isPrinting();
-    if (wasPrinting && !nowPrinting)
-    {
-        lastPrintEndMs = statusTimestamp;
-    }
-    else if (nowPrinting)
-    {
-        lastPrintEndMs = 0;
-    }
+        printStatus  = newStatus;
+        bool nowPrinting = isPrinting();
+        if (wasPrinting && !nowPrinting)
+        {
+            lastPrintEndMs = statusTimestamp;
+        }
+        else if (nowPrinting)
+        {
+            lastPrintEndMs = 0;
+        }
         currentLayer = printInfo["CurrentLayer"];
         totalLayer   = printInfo["TotalLayer"];
         progress     = printInfo["Progress"];
@@ -586,9 +602,11 @@ bool ElegooCC::processFilamentTelemetry(JsonObject &printInfo, unsigned long cur
 
 void ElegooCC::pausePrint()
 {
+    jamDetector.setPauseRequested();
+    lastPauseRequestMs = millis();
+
     if (settingsManager.getSuppressPauseCommands())
     {
-        lastPauseRequestMs = millis();
         logger.logf("Pause command suppressed (suppress_pause_commands enabled)");
         return;
     }
@@ -597,9 +615,8 @@ void ElegooCC::pausePrint()
         logger.logf("Pause command suppressed: printer websocket not connected");
         return;
     }
-    jamDetector.setPauseRequested();
+    
     trackingFrozen      = false;
-    lastPauseRequestMs = millis();
     logger.logf("Pause command sent to printer");
     sendCommand(SDCP_COMMAND_PAUSE_PRINT, true);
 }

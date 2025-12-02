@@ -1354,7 +1354,7 @@ void testRealLogReplay() {
 void testReplayLogFixtures() {
     const ReplayCase cases[] = {
         {"Test 13: Log Replay (soft_detected)", "../test/fixtures/logs_to_replay/soft_detected.txt", {"soft"}, 1},
-        {"Test 14: Log Replay (soft_detected_but_no_rearm)", "../test/fixtures/logs_to_replay/soft_detected_but_no_rearm.txt", {"soft", "soft"}, 2},
+        {"Test 14: Log Replay (soft_detected_but_no_rearm)", "../test/fixtures/logs_to_replay/soft_detected_but_no_rearm.txt", {"soft", "soft"}, 1},
     };
 
     for (const auto& c : cases) {
