@@ -132,6 +132,82 @@ def get_distributor_dir_for_board(board_env: str) -> str:
     return BOARD_TO_DISTRIBUTOR_DIR.get(board_env, "")
 
 
+@contextmanager
+def temporarily_hide_files(paths: List[str]):
+    """Temporarily move sensitive files out of data/ so LittleFS skips them."""
+    backups = []
+    staging_dir: Optional[str] = None
+    try:
+        for path in paths:
+            if os.path.exists(path):
+                if staging_dir is None:
+                    staging_dir = tempfile.mkdtemp(prefix="fs_secrets_")
+                backup = os.path.join(staging_dir, os.path.basename(path))
+                shutil.move(path, backup)
+                backups.append((path, backup))
+        if backups:
+            print("Excluding secret files from filesystem image for this build.")
+        yield
+    finally:
+        for original, backup in reversed(backups):
+            if os.path.exists(backup):
+                shutil.move(backup, original)
+        if staging_dir and os.path.isdir(staging_dir):
+            shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+@contextmanager
+def temporarily_merge_secrets(settings_path: str, secrets_path: str, ignore: bool) -> Iterator[bool]:
+    """
+    Merge secrets into user_settings.json for the duration of the context.
+    Always restores the original contents, even if later steps fail.
+    """
+    if ignore:
+        yield False
+        return
+
+    if not os.path.exists(secrets_path):
+        raise FileNotFoundError(
+            f"Required secrets file not found at {secrets_path}. "
+            "Create it or pass --ignore-secrets."
+        )
+
+    try:
+        with open(settings_path, "r", encoding="utf-8") as f:
+            original_text = f.read()
+            base_settings = json.loads(original_text or "{}")
+    except FileNotFoundError:
+        original_text = ""
+        base_settings = {}
+    except Exception as e:  # pragma: no cover
+        print(f"WARNING: Failed to read base user_settings.json: {e}")
+        original_text = ""
+        base_settings = {}
+
+    try:
+        with open(secrets_path, "r", encoding="utf-8") as f:
+            secrets = json.load(f)
+    except Exception as e:  # pragma: no cover
+        print(f"WARNING: Failed to read {SECRET_FILENAME}: {e}")
+        secrets = {}
+
+    for key in ("ssid", "passwd", "elegooip"):
+        if key in secrets:
+            base_settings[key] = secrets[key]
+
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(base_settings, f, indent=2)
+        f.write("\n")
+    print("Merged secrets into data/user_settings.json for this build.")
+
+    try:
+        yield True
+    finally:
+        with open(settings_path, "w", encoding="utf-8") as f:
+            f.write(original_text)
+        print("Restored original data/user_settings.json without secrets after build.")
+
+
 def run(cmd: List[str], cwd: Optional[str] = None, env: Optional[str] = None) -> None:
     """Run command with optional environment variable."""
     print(f"> {' '.join(cmd)} (cwd={cwd or os.getcwd()})")
@@ -362,9 +438,10 @@ def build_firmware(repo_root: str, board_env: str, ignore_secrets: bool, version
     webui_lite_dir = os.path.join(repo_root, "webui_lite")
     data_dir = os.path.join(repo_root, "data")
     secret_file_paths = [os.path.join(data_dir, SECRET_FILENAME)]
+    settings_path = os.path.join(data_dir, "user_settings.json")
+    secrets_path = os.path.join(data_dir, SECRET_FILENAME)
 
     # Ensure a base user_settings.json exists
-    settings_path = os.path.join(data_dir, "user_settings.json")
     template_path = os.path.join(data_dir, "user_settings.template.json")
     if not os.path.exists(settings_path) and os.path.exists(template_path):
         shutil.copyfile(template_path, settings_path)
@@ -420,12 +497,16 @@ def build_firmware(repo_root: str, board_env: str, ignore_secrets: bool, version
     print(f"\n=== Building Filesystem ===")
 
     # Create build info files before filesystem build
-    timestamp_path = create_build_timestamp(data_dir)
-    version_path = create_build_version(data_dir, repo_root)
+    timestamp_path = None
+    version_path = None
 
     try:
-        fs_cmd = [pio_cmd, "run", "-e", board_env, "-t", "buildfs"]
-        run_with_chip_family(fs_cmd, board_env, cwd=repo_root)
+        with temporarily_merge_secrets(settings_path, secrets_path, ignore_secrets):
+            timestamp_path = create_build_timestamp(data_dir)
+            version_path = create_build_version(data_dir, repo_root)
+            fs_cmd = [pio_cmd, "run", "-e", board_env, "-t", "buildfs"]
+            with temporarily_hide_files(secret_file_paths):
+                run_with_chip_family(fs_cmd, board_env, cwd=repo_root)
     finally:
         # Clean up temporary files
         if timestamp_path and os.path.exists(timestamp_path):
