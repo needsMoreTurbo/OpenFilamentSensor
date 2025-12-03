@@ -629,11 +629,60 @@ select {
     position: relative !important;
     inset: auto !important;
     margin: 0 !important;
-    width: 100%;
-    max-width: 420px;
+    width: 100% !important;
+    max-width: 100% !important;
     box-shadow: none !important;
     border-radius: 20px;
     overflow: hidden;
+    display: block !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(base) {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    background: transparent !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(scrim) {
+    display: none !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(dialog) {
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0 !important;
+    border-radius: 20px;
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: none !important;
+    border: 1px solid var(--border-color);
+    padding: 16px !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(close-button) {
+    color: var(--text-primary) !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(actions) {
+    background: transparent !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(content),
+ewt-install-dialog.ewt-embedded::part(header) {
+    background: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+ewt-install-dialog.ewt-embedded::part(primary-button),
+ewt-install-dialog.ewt-embedded::part(secondary-button) {
+    border-radius: 12px !important;
 }
 
 .install-dialog-log-header {

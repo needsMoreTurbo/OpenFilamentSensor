@@ -34,7 +34,8 @@ const state = {
     logHistoryLimit: 400,
     consoleOriginals: {},
     wifiPatcher: null,
-    versioning: null
+    versioning: null,
+    pendingInstall: false
 };
 
 const normalizeVersioning = (raw) => {
@@ -337,7 +338,9 @@ const attachEvents = () => {
             return;
         }
 
-        startCapture(state.selected.variant);
+        // Mark that an install is pending; capture starts once the installer dialog appears
+        state.pendingInstall = true;
+        appendLog('Installer launching. Select your serial port to continue.', 'info');
     });
 
     selectors.downloadOtaBtn.addEventListener('click', async () => {
@@ -379,13 +382,126 @@ const attachEvents = () => {
 };
 
 const observeInstallerDialog = () => {
+    const styleEmbeddedDialog = (dialog) => {
+        // Force the ESP Web Tools dialog to live inside our overlay without its own scrim
+        try {
+            const root = dialog.shadowRoot;
+            if (!root) return;
+            const ewDialog = root.querySelector('ew-dialog');
+            const ewRoot = ewDialog?.shadowRoot || null;
+            const innerDialog = ewRoot?.querySelector('dialog');
+            const scrim = root.querySelector('.mdc-dialog__scrim');
+            const surface = root.querySelector('.mdc-dialog__surface');
+            const container = root.querySelector('.mdc-dialog__container');
+            const content = root.querySelector('.mdc-dialog__content');
+            const title = root.querySelector('.mdc-dialog__title');
+            const actions = root.querySelector('.mdc-dialog__actions');
+            if (scrim) scrim.style.display = 'none';
+            if (ewDialog) ewDialog.removeAttribute('open');
+            if (ewRoot) {
+                const innerScrim = ewRoot.querySelector('.scrim');
+                const innerSurface = ewRoot.querySelector('.dialog-surface');
+                const innerContainer = ewRoot.querySelector('.dialog-container');
+                const innerContent = ewRoot.querySelector('div[slot="content"]');
+                const innerHeader = ewRoot.querySelector('div[slot="headline"]');
+                if (innerScrim) innerScrim.style.display = 'none';
+                if (innerSurface) {
+                    innerSurface.style.background = 'transparent';
+                    innerSurface.style.boxShadow = 'none';
+                    innerSurface.style.border = 'none';
+                    innerSurface.style.width = '100%';
+                    innerSurface.style.maxWidth = '100%';
+                    innerSurface.style.padding = '0';
+                }
+                if (innerContainer) {
+                    innerContainer.style.background = 'transparent';
+                    innerContainer.style.boxShadow = 'none';
+                    innerContainer.style.border = 'none';
+                    innerContainer.style.width = '100%';
+                    innerContainer.style.maxWidth = '100%';
+                    innerContainer.style.padding = '0';
+                    innerContainer.style.position = 'static';
+                    innerContainer.style.inset = 'auto';
+                    innerContainer.style.transform = 'none';
+                }
+                if (innerContent) {
+                    innerContent.style.background = 'transparent';
+                    innerContent.style.boxShadow = 'none';
+                    innerContent.style.border = 'none';
+                    innerContent.style.padding = '0';
+                    innerContent.style.color = 'var(--text-primary)';
+                }
+                if (innerHeader) {
+                    innerHeader.style.background = 'transparent';
+                    innerHeader.style.color = 'var(--text-primary)';
+                    innerHeader.style.padding = '0';
+                }
+                if (innerDialog) {
+                    innerDialog.style.background = 'transparent';
+                    innerDialog.style.boxShadow = 'none';
+                    innerDialog.style.border = 'none';
+                    innerDialog.style.padding = '0';
+                    innerDialog.style.margin = '0';
+                    innerDialog.style.maxWidth = '100%';
+                    innerDialog.style.width = '100%';
+                }
+                if (ewDialog) {
+                    ewDialog.style.setProperty('--md-sys-color-surface', 'transparent');
+                    ewDialog.style.setProperty('--md-sys-color-surface-container', 'transparent');
+                    ewDialog.style.setProperty('--md-sys-color-surface-container-low', 'transparent');
+                    ewDialog.style.setProperty('--md-sys-color-surface-container-high', 'transparent');
+                    ewDialog.style.setProperty('--md-sys-color-surface-container-highest', 'transparent');
+                    ewDialog.style.setProperty('--md-sys-color-primary', 'var(--text-primary)');
+                }
+                ewDialog.style.position = 'static';
+                ewDialog.style.inset = 'auto';
+                ewDialog.style.transform = 'none';
+                ewDialog.style.background = 'transparent';
+                ewDialog.style.width = '100%';
+                ewDialog.style.maxWidth = '100%';
+                ewDialog.style.margin = '0';
+            }
+            [surface, container].forEach((el) => {
+                if (!el) return;
+                el.style.position = 'static';
+                el.style.inset = 'auto';
+                el.style.transform = 'none';
+                el.style.boxShadow = 'none';
+                el.style.background = 'transparent';
+                el.style.width = '100%';
+                el.style.maxWidth = '100%';
+            });
+            [content, title, actions].forEach((el) => {
+                if (!el) return;
+                el.style.background = 'transparent';
+                el.style.color = 'var(--text-primary)';
+                el.style.boxShadow = 'none';
+                el.style.border = 'none';
+            });
+            if (surface) {
+                surface.style.padding = '0';
+                surface.style.border = 'none';
+            }
+        } catch (err) {
+            console.warn('Failed to restyle install dialog', err);
+        }
+    };
+
     const observer = new MutationObserver(() => {
         const dialog = document.querySelector('ewt-install-dialog');
         if (dialog && !state.dialogOpen) {
             state.dialogOpen = true;
-            toggleDialogLogOverlay(true);
+            dialog.classList.add('ewt-embedded');
+            dialog.removeAttribute('open');
+            styleEmbeddedDialog(dialog);
             if (state.dialogSlot && dialog.parentElement !== state.dialogSlot) {
                 state.dialogSlot.appendChild(dialog);
+            }
+            toggleDialogLogOverlay(true);
+            if (state.pendingInstall) {
+                const label = state.selected?.variant || 'Unknown board';
+                startCapture(label);
+                state.pendingInstall = false;
             }
             appendLog('Installer dialog opened. Follow the prompts to select the serial port.', 'info');
         } else if (!dialog && state.dialogOpen) {
