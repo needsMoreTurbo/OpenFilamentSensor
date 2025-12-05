@@ -18,7 +18,12 @@ const selectors = {
     wifiForm: document.getElementById('wifiPatchForm'),
     wifiStatus: document.getElementById('wifiPatchStatus'),
     wifiAcceptBtn: document.getElementById('wifiAcceptBtn'),
+    wifiResetBtn: document.getElementById('wifiResetBtn'),
     wifiPatchDialog: document.getElementById('wifiPatchDialog'),
+    // Warning dialog elements
+    warningDialog: document.getElementById('warningDialog'),
+    eraseDeviceCheckbox: document.getElementById('eraseDeviceCheckbox'),
+    confirmFlashBtn: document.getElementById('confirmFlashBtn'),
     boardCount: document.getElementById('boardCount'),
     boardNotes: document.getElementById('boardNotes'),
     webSerialWarning: document.getElementById('webSerialWarning'),
@@ -43,7 +48,8 @@ const state = {
     wifiPatcher: null,
     versioning: null,
     flasher: null,
-    selectedPort: null
+    selectedPort: null,
+    monitoring: false
 };
 
 const normalizeVersioning = (raw) => {
@@ -135,7 +141,7 @@ const renderBoards = () => {
             option.textContent = board.variant;
             optgroup.appendChild(option);
         });
-    selectors.boardSelect.appendChild(optgroup);
+        selectors.boardSelect.appendChild(optgroup);
     });
 };
 
@@ -359,6 +365,44 @@ const showPortSelector = () => {
     });
 };
 
+const showWarningDialog = () => {
+    return new Promise((resolve) => {
+        const dialog = selectors.warningDialog;
+        const confirmBtn = selectors.confirmFlashBtn;
+        const checkbox = selectors.eraseDeviceCheckbox;
+
+        // Reset state
+        checkbox.checked = true;
+
+        const closeHandler = () => {
+            dialog.classList.add('hidden');
+            resolve(null);
+        };
+
+        const confirmHandler = () => {
+            dialog.classList.add('hidden');
+            resolve({ eraseFirst: checkbox.checked });
+        };
+
+        // Re-bind confirm button
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        selectors.confirmFlashBtn = newConfirmBtn;
+        selectors.confirmFlashBtn.addEventListener('click', confirmHandler);
+
+        // Bind close actions
+        const backdrop = dialog.querySelector('.wifi-dialog-backdrop');
+        const closeIcon = dialog.querySelector('.wifi-dialog-close');
+        const cancelBtn = dialog.querySelector('.start-flash-actions .ghost-btn');
+
+        if (backdrop) backdrop.onclick = closeHandler;
+        if (closeIcon) closeIcon.onclick = closeHandler;
+        if (cancelBtn) cancelBtn.onclick = closeHandler;
+
+        dialog.classList.remove('hidden');
+    });
+};
+
 const startFlashing = async () => {
     if (!state.selected) {
         appendLog('Select a board before flashing.', 'warn');
@@ -385,6 +429,15 @@ const startFlashing = async () => {
         return;
     }
 
+    // Show warning/confirmation dialog
+    const confirmation = await showWarningDialog();
+    if (!confirmation) {
+        appendLog('Flash cancelled by user.', 'info');
+        state.flashing = false;
+        updateButtonStates();
+        return;
+    }
+
     // Show flash overlay
     showFlashOverlay();
     appendFlashLog(`Starting flash for ${state.selected.variant}`, 'info');
@@ -403,11 +456,17 @@ const startFlashing = async () => {
         }
 
         // Start flashing
-        await state.flasher.flash(port, manifestUrl);
+        await state.flasher.flash(port, manifestUrl, { eraseFirst: confirmation.eraseFirst });
 
         appendFlashLog('Flash completed successfully!', 'success');
 
-    } catch (error) {
+        // Start serial monitor
+        appendFlashLog('Starting serial monitor... (Close overlay to stop)', 'info');
+        // Do not await this, let it run in background
+        state.flasher.startMonitor(port);
+        state.monitoring = true;
+
+
         appendFlashLog(`Flash failed: ${error.message}`, 'error');
     } finally {
         state.flashing = false;
@@ -471,7 +530,7 @@ const downloadOtaFiles = async (boardId) => {
 
         // Generate and download zip
         appendLog('Creating OTA package...', 'info');
-        const content = await zip.generateAsync({type: "blob"});
+        const content = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(content);
         const a = document.createElement('a');
         a.href = url;
@@ -539,8 +598,12 @@ const attachEvents = () => {
 
     // Flash overlay close button
     if (selectors.flashOverlayClose) {
-        selectors.flashOverlayClose.addEventListener('click', () => {
+        selectors.flashOverlayClose.addEventListener('click', async () => {
             if (!state.flashing) {
+                if (state.monitoring) {
+                    await state.flasher.stopMonitor();
+                    state.monitoring = false;
+                }
                 hideFlashOverlay();
             }
         });
@@ -575,6 +638,7 @@ const init = async () => {
     // Initialize WiFi patcher (without installButton reference)
     state.wifiPatcher = initWifiPatcher({
         openButton: selectors.wifiAcceptBtn,
+        resetButton: selectors.wifiResetBtn,
         dialog: selectors.wifiPatchDialog,
         form: selectors.wifiForm,
         statusEl: selectors.wifiStatus,

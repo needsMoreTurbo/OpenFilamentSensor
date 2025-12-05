@@ -27,9 +27,9 @@ const CHIP_FAMILY_MAP = {
 
 class EspFlasher {
     constructor(options = {}) {
-        this.onProgress = options.onProgress || (() => {});
+        this.onProgress = options.onProgress || (() => { });
         this.onLog = options.onLog || console.log;
-        this.onStateChange = options.onStateChange || (() => {});
+        this.onStateChange = options.onStateChange || (() => { });
         this.transport = null;
         this.espLoader = null;
         this.esptoolModule = null;
@@ -90,11 +90,13 @@ class EspFlasher {
             this.onLog('Connecting to device...', 'info');
 
             // Close port if it was left open from a previous session
-            if (port.readable) {
+            if (port.readable || port.writable) {
                 try {
                     await port.close();
+                    // Give the OS a moment to release the file handle
+                    await new Promise(resolve => setTimeout(resolve, 200));
                 } catch (e) {
-                    // Ignore close errors
+                    this.onLog(`Warning: Failed to force close port: ${e.message}`, 'warn');
                 }
             }
 
@@ -110,7 +112,7 @@ class EspFlasher {
                 baudrate: 115200,
                 romBaudrate: 115200,
                 terminal: {
-                    clean: () => {},
+                    clean: () => { },
                     writeLine: (data) => {
                         if (data && data.trim()) {
                             this.onLog(data.trim(), 'info');
@@ -336,13 +338,95 @@ class EspFlasher {
     /**
      * Get port info for display
      */
+    /**
+     * Start serial monitor on the port
+     */
+    async startMonitor(port) {
+        try {
+            if (!port.readable) {
+                await port.open({ baudRate: 115200 });
+            }
+
+            this.monitoring = true;
+            this.onLog('\n--- Starting Serial Monitor ---\n', 'info');
+
+            let buffer = '';
+            const decoder = new TextDecoder();
+
+            while (port.readable && this.monitoring) {
+                const reader = port.readable.getReader();
+                this.monitorReader = reader;
+
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            buffer += decoder.decode(value, { stream: true });
+
+                            // Process lines in buffer
+                            let newlineIndex;
+                            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                                const line = buffer.substring(0, newlineIndex).trim();
+                                if (line) {
+                                    this.onLog(line, 'output');
+                                }
+                                buffer = buffer.substring(newlineIndex + 1);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    if (this.monitoring) {
+                        this.onLog(`Monitor error: ${error.message}`, 'error');
+                    }
+                } finally {
+                    reader.releaseLock();
+                }
+            }
+        } catch (error) {
+            this.onLog(`Failed to start monitor: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Stop serial monitor
+     */
+    async stopMonitor() {
+        this.monitoring = false;
+        if (this.monitorReader) {
+            try {
+                await this.monitorReader.cancel();
+            } catch (e) {
+                // Ignore cancel errors
+            }
+            this.monitorReader = null;
+        }
+    }
+
+    /**
+     * Get port info for display
+     */
     static getPortInfo(port) {
         try {
             const info = port.getInfo();
+            const vendorMap = {
+                0x303a: 'Espressif',
+                0x10c4: 'Silicon Labs',
+                0x1a86: 'Qinheng',
+                0x0403: 'FTDI'
+            };
+
+            let label = 'Serial Port';
+            if (info.usbVendorId) {
+                const vendorName = vendorMap[info.usbVendorId] || `Vendor 0x${info.usbVendorId.toString(16)}`;
+                const pid = info.usbProductId ? `:${info.usbProductId.toString(16)}` : '';
+                label = `${vendorName} USB Device${pid}`;
+            }
+
             return {
                 vendorId: info.usbVendorId ? `0x${info.usbVendorId.toString(16).padStart(4, '0')}` : 'N/A',
                 productId: info.usbProductId ? `0x${info.usbProductId.toString(16).padStart(4, '0')}` : 'N/A',
-                label: info.usbVendorId ? `USB Device (${info.usbVendorId.toString(16)}:${info.usbProductId?.toString(16) || '????'})` : 'Serial Port'
+                label
             };
         } catch {
             return {

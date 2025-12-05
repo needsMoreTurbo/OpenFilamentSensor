@@ -116,9 +116,14 @@
                     patched binary are local to your browser - they are not transmitted outside of your local
                     environment. If you are not comfortable with this, simply do not use this feature.
                 </p>
-                <button class="primary-btn" id="wifiAcceptBtn" type="button">
-                    Accept and provide credentials
-                </button>
+                <div class="wifi-controls">
+                    <button class="primary-btn" id="wifiAcceptBtn" type="button">
+                        Accept and provide credentials
+                    </button>
+                    <button class="ghost-btn hidden" id="wifiResetBtn" type="button">
+                        Reset Patch
+                    </button>
+                </div>
                 <p class="wifi-status muted" id="wifiPatchStatus">
                     Click "Accept and provide credentials" to begin the optional patch.
                 </p>
@@ -220,7 +225,6 @@
                 </div>
                 <div class="wifi-actions">
                     <button class="primary-btn" type="submit">Patch firmware</button>
-                    <button class="ghost-btn" type="button" data-reset>Reset patch</button>
                 </div>
             </form>
             <p class="wifi-dialog-disclaimer">
@@ -248,6 +252,34 @@
                 </svg>
                 Authorize new device...
             </button>
+        </div>
+    </div>
+
+    <div id="warningDialog" class="wifi-dialog hidden">
+        <div class="wifi-dialog-backdrop" data-dialog-close></div>
+        <div class="wifi-dialog-panel warning-panel">
+            <button class="wifi-dialog-close" data-dialog-close type="button">×</button>
+            <div class="warning-icon-large">!</div>
+            <h3>Ready to Flash?</h3>
+            <p class="wifi-dialog-note">
+                This will overwrite the current firmware on your device.
+            </p>
+            
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="eraseDeviceCheckbox" checked>
+                <span class="checkbox-box"></span>
+                <span class="checkbox-label">Erase device first (Recommended)</span>
+            </label>
+            <p class="checkbox-help">
+                Performs a full chip erase before flashing. This ensures a clean installation but takes longer.
+            </p>
+
+            <div class="start-flash-actions">
+                <button class="ghost-btn" data-dialog-close type="button">Cancel</button>
+                <button class="primary-btn danger-btn" id="confirmFlashBtn" type="button">
+                    I understand, Install Firmware
+                </button>
+            </div>
         </div>
     </div>
 

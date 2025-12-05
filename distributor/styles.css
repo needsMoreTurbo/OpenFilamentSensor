@@ -147,6 +147,7 @@ main {
     border: 1px solid transparent;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
     -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
@@ -250,7 +251,7 @@ select {
     font-size: 1rem;
 }
 
-.wifi-form .field-group + .field-group {
+.wifi-form .field-group+.field-group {
     margin-top: 12px;
 }
 
@@ -858,6 +859,7 @@ select {
         opacity: 0;
         transform: scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
@@ -930,4 +932,119 @@ footer {
     .layout-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Polished UI Additions */
+.hidden {
+    display: none !important;
+}
+
+/* WiFi Controls */
+.wifi-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.wifi-controls .primary-btn {
+    width: auto;
+}
+
+/* Warning Dialog */
+.warning-panel {
+    text-align: center;
+    max-width: 400px;
+}
+
+.warning-icon-large {
+    width: 64px;
+    height: 64px;
+    background: rgba(251, 188, 5, 0.15);
+    color: var(--warning);
+    font-size: 2rem;
+    font-weight: 700;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: grid;
+    place-items: center;
+}
+
+.danger-btn {
+    background: linear-gradient(135deg, #ff4757, #ff6b81);
+    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
+}
+
+.danger-btn:hover {
+    box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+}
+
+/* Custom Checkbox */
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    margin: 24px 0 8px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: border-color 0.2s;
+}
+
+.checkbox-wrapper:hover {
+    border-color: var(--text-secondary);
+}
+
+.checkbox-wrapper input {
+    display: none;
+}
+
+.checkbox-box {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-secondary);
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.checkbox-wrapper input:checked+.checkbox-box {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.checkbox-wrapper input:checked+.checkbox-box::after {
+    content: '✓';
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.checkbox-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.checkbox-help {
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0 0 24px;
+    padding-left: 12px;
+}
+
+.start-flash-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.start-flash-actions .primary-btn {
+    width: auto;
 }
