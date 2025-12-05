@@ -11,7 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
-    <script type="module" src="https://unpkg.com/esp-web-tools/dist/web/install-button.js?module"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
     <script type="module" src="./app.js" defer></script>
 </head>
@@ -140,17 +139,12 @@
                         <li>Click <strong>Flash firmware</strong>, pick the serial port, and confirm.</li>
                     </ol>
                 </div>
-                <esp-web-install-button id="installButton">
-                    <button class="primary-btn" slot="activate" type="button" id="flashTrigger">
-                        <span>Flash firmware</span>
-                    </button>
-                    <span slot="unsupported" class="warning-text">
-                        Web Serial is not available in this browser. Try Chrome or Edge on desktop.
-                    </span>
-                    <span slot="not-allowed" class="warning-text">
-                        Hosting must be HTTPS or localhost for Web Serial. Deploy behind TLS to continue.
-                    </span>
-                </esp-web-install-button>
+                <button class="primary-btn" type="button" id="flashTrigger">
+                    <span>Flash firmware</span>
+                </button>
+                <div id="webSerialWarning" class="warning-text" style="display: none;">
+                    Web Serial is not available in this browser. Try Chrome or Edge on desktop.
+                </div>
                 <div class="ota-block">
                     <div class="ota-header">
                         <h4>Update OTA</h4>
@@ -233,6 +227,49 @@
                 DISCLAIMER: Use at your own risk, I cannot guarantee credential security. Check the Github repo for the
                 source files of this distributor.
             </p>
+        </div>
+    </div>
+
+    <div id="portSelectorDialog" class="port-selector-dialog hidden">
+        <div class="port-selector-backdrop" data-dialog-close></div>
+        <div class="port-selector-panel">
+            <button class="port-selector-close" data-dialog-close type="button">×</button>
+            <h3>Select Serial Port</h3>
+            <p class="port-selector-note">
+                Choose a previously connected device or authorize a new one.
+            </p>
+            <div class="port-list" id="portList">
+                <p class="muted">No previously authorized ports found.</p>
+            </div>
+            <button class="ghost-btn port-authorize-btn" id="authorizeNewPort" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Authorize new device...
+            </button>
+        </div>
+    </div>
+
+    <div id="flashOverlay" class="flash-overlay hidden">
+        <div class="flash-overlay-backdrop"></div>
+        <div class="flash-overlay-panel">
+            <div class="flash-overlay-header">
+                <span>Installer Console</span>
+                <button class="flash-overlay-close" id="flashOverlayClose" type="button">×</button>
+            </div>
+            <div class="flash-progress-container">
+                <div class="flash-progress-header">
+                    <span class="flash-stage" id="flashStage">Ready</span>
+                    <span class="flash-percent" id="flashPercent">0%</span>
+                </div>
+                <div class="flash-progress-bar">
+                    <div class="flash-progress-fill" id="flashProgressFill"></div>
+                </div>
+            </div>
+            <div class="flash-log-stream" id="flashLogStream">
+                <p class="muted">Flash output will appear here.</p>
+            </div>
         </div>
     </div>
 

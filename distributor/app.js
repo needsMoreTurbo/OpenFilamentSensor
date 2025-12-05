@@ -1,4 +1,5 @@
 import { initWifiPatcher } from './wifiPatcher.js';
+import { EspFlasher, FLASH_STATES } from './flasher.js';
 
 const selectors = {
     boardSelect: document.getElementById('boardSelect'),
@@ -7,7 +8,6 @@ const selectors = {
     boardRelease: document.getElementById('boardRelease'),
     notesList: document.getElementById('notesList'),
     releaseNotesTitle: document.getElementById('releaseNotesTitle'),
-    installButton: document.getElementById('installButton'),
     flashTrigger: document.getElementById('flashTrigger'),
     downloadOtaBtn: document.getElementById('downloadOtaBtn'),
     logStream: document.getElementById('logStream'),
@@ -20,22 +20,30 @@ const selectors = {
     wifiAcceptBtn: document.getElementById('wifiAcceptBtn'),
     wifiPatchDialog: document.getElementById('wifiPatchDialog'),
     boardCount: document.getElementById('boardCount'),
-    boardNotes: document.getElementById('boardNotes')
+    boardNotes: document.getElementById('boardNotes'),
+    webSerialWarning: document.getElementById('webSerialWarning'),
+    // Port selector elements
+    portSelectorDialog: document.getElementById('portSelectorDialog'),
+    portList: document.getElementById('portList'),
+    authorizeNewPort: document.getElementById('authorizeNewPort'),
+    // Flash overlay elements
+    flashOverlay: document.getElementById('flashOverlay'),
+    flashOverlayClose: document.getElementById('flashOverlayClose'),
+    flashStage: document.getElementById('flashStage'),
+    flashPercent: document.getElementById('flashPercent'),
+    flashProgressFill: document.getElementById('flashProgressFill'),
+    flashLogStream: document.getElementById('flashLogStream')
 };
 
 const state = {
     boards: [],
     selected: null,
-    capturing: false,
-    dialogOpen: false,
-    dialogLogOverlay: null,
-    dialogLogStream: null,
-    dialogSlot: null,
+    flashing: false,
     logHistoryLimit: 400,
-    consoleOriginals: {},
     wifiPatcher: null,
     versioning: null,
-    pendingInstall: false
+    flasher: null,
+    selectedPort: null
 };
 
 const normalizeVersioning = (raw) => {
@@ -68,56 +76,41 @@ const resolveAssetUrl = (path) => {
     return new URL(path, import.meta.url).href;
 };
 
-const appendLog = (message, level = 'info') => {
+const appendLog = (message, level = 'info', skipFlashMirror = false) => {
     const entry = document.createElement('p');
     entry.className = `log-entry ${level}`;
     const time = new Date().toLocaleTimeString();
     entry.textContent = `[${time}] ${message}`;
     selectors.logStream.appendChild(entry);
     selectors.logStream.scrollTop = selectors.logStream.scrollHeight;
-    if (state.dialogLogStream) {
+
+    // Mirror to flash overlay log if visible (unless already handled by appendFlashLog)
+    if (!skipFlashMirror && selectors.flashLogStream && !selectors.flashOverlay.classList.contains('hidden')) {
         const mirror = entry.cloneNode(true);
-        state.dialogLogStream.appendChild(mirror);
-        if (state.dialogLogStream.children.length > state.logHistoryLimit) {
-            state.dialogLogStream.removeChild(state.dialogLogStream.firstChild);
+        selectors.flashLogStream.appendChild(mirror);
+        if (selectors.flashLogStream.children.length > state.logHistoryLimit) {
+            selectors.flashLogStream.removeChild(selectors.flashLogStream.firstChild);
         }
-        state.dialogLogStream.scrollTop = state.dialogLogStream.scrollHeight;
+        selectors.flashLogStream.scrollTop = selectors.flashLogStream.scrollHeight;
     }
 };
 
-const installConsoleCapture = () => {
-    ['log', 'info', 'warn', 'error'].forEach((level) => {
-        const original = console[level].bind(console); // eslint-disable-line no-console
-        state.consoleOriginals[level] = original;
-        console[level] = (...args) => { // eslint-disable-line no-console
-            if (state.capturing && args.length) {
-                appendLog(args.map((item) => {
-                    if (typeof item === 'string') return item;
-                    try {
-                        return JSON.stringify(item);
-                    } catch (err) {
-                        return String(item);
-                    }
-                }).join(' '), level === 'log' ? 'info' : level);
-            }
-            original(...args);
-        };
-    });
-};
-
-const startCapture = (boardLabel) => {
-    if (!state.capturing) {
-        state.capturing = true;
-        toggleDialogLogOverlay(true);
-        appendLog(`Starting flashing session for ${boardLabel}`, 'info');
+const appendFlashLog = (message, level = 'info') => {
+    // Append to flash overlay log
+    if (selectors.flashLogStream) {
+        const entry = document.createElement('p');
+        entry.className = `log-entry ${level}`;
+        const time = new Date().toLocaleTimeString();
+        entry.textContent = `[${time}] ${message}`;
+        selectors.flashLogStream.appendChild(entry);
+        if (selectors.flashLogStream.children.length > state.logHistoryLimit) {
+            selectors.flashLogStream.removeChild(selectors.flashLogStream.firstChild);
+        }
+        selectors.flashLogStream.scrollTop = selectors.flashLogStream.scrollHeight;
     }
-};
 
-const stopCapture = (reason = 'Installer closed') => {
-    if (!state.capturing) return;
-    appendLog(reason, 'info');
-    state.capturing = false;
-    toggleDialogLogOverlay(false);
+    // Also append to main log (skip flash mirror since we already added it above)
+    appendLog(message, level, true);
 };
 
 const renderBoards = () => {
@@ -186,60 +179,10 @@ const renderNotes = (target, notes = [], emptyText = 'No release notes provided 
     });
 };
 
-const toggleDialogLogOverlay = (visible) => {
-    const overlay = state.dialogLogOverlay;
-    if (!overlay) return;
-    overlay.classList.toggle('visible', visible);
-    overlay.classList.toggle('hidden', !visible);
-};
-
-const createDialogLogOverlay = () => {
-    if (state.dialogLogOverlay) return;
-    const overlay = document.createElement('section');
-    overlay.id = 'install-dialog-log-overlay';
-    overlay.className = 'install-dialog-log-overlay hidden';
-
-    const header = document.createElement('div');
-    header.className = 'install-dialog-log-header';
-    header.innerHTML = '<span>Installer console</span>';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'install-dialog-log-close';
-    closeBtn.setAttribute('aria-label', 'Hide installer console');
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => toggleDialogLogOverlay(false));
-    header.appendChild(closeBtn);
-
-    const stream = document.createElement('div');
-    stream.className = 'log-stream dialog';
-    stream.setAttribute('role', 'log');
-    stream.setAttribute('aria-live', 'polite');
-    stream.setAttribute('aria-relevant', 'additions');
-    stream.innerHTML = '<p class="muted">Installer console output will appear here.</p>';
-
-    const panel = document.createElement('div');
-    panel.className = 'install-dialog-log-panel';
-    panel.appendChild(header);
-    panel.appendChild(stream);
-
-    const slot = document.createElement('div');
-    slot.className = 'install-dialog-slot';
-    panel.appendChild(slot);
-
-    overlay.appendChild(panel);
-
-    state.dialogSlot = slot;
-    document.body.appendChild(overlay);
-
-    state.dialogLogOverlay = overlay;
-    state.dialogLogStream = stream;
-};
-
 const updateButtonStates = () => {
     const hasValidBoard = state.selected !== null && selectors.boardSelect.value !== '';
-    selectors.flashTrigger.disabled = !hasValidBoard;
-    selectors.downloadOtaBtn.disabled = !hasValidBoard;
+    selectors.flashTrigger.disabled = !hasValidBoard || state.flashing;
+    selectors.downloadOtaBtn.disabled = !hasValidBoard || state.flashing;
 };
 
 const hydrateBoardDetails = (board) => {
@@ -254,7 +197,6 @@ const hydrateBoardDetails = (board) => {
         selectors.heroDate.textContent = '--';
         renderNotes(selectors.boardNotes, [], 'Select a board to view release notes');
         updateButtonStates();
-        selectors.installButton?.removeAttribute('manifest');
         state.wifiPatcher?.updateBaseManifest('');
         return;
     }
@@ -275,10 +217,8 @@ const hydrateBoardDetails = (board) => {
 
     const manifestUrl = resolveAssetUrl(board.manifest);
     if (manifestUrl) {
-        selectors.installButton?.setAttribute('manifest', manifestUrl);
         state.wifiPatcher?.updateBaseManifest(manifestUrl);
     } else {
-        selectors.installButton?.removeAttribute('manifest');
         state.wifiPatcher?.updateBaseManifest('');
     }
 };
@@ -319,205 +259,168 @@ const fetchVersioning = async () => {
     }
 };
 
-const attachEvents = () => {
-    selectors.boardSelect.addEventListener('change', (event) => {
-        const board = state.boards.find((item) => item.id === event.target.value);
-        hydrateBoardDetails(board);
-        appendLog(`Switched to ${board?.variant || 'unknown board'}`, 'info');
-    });
+// Flash overlay management
+const showFlashOverlay = () => {
+    selectors.flashOverlay.classList.remove('hidden');
+    selectors.flashLogStream.innerHTML = '<p class="muted">Flash output will appear here.</p>';
+    updateProgressUI(FLASH_STATES.IDLE, 0, 'Ready');
+};
 
-    selectors.flashTrigger.addEventListener('click', () => {
-        if (!state.selected) {
-            appendLog('Select a board before flashing.', 'warn');
-            return;
-        }
+const hideFlashOverlay = () => {
+    selectors.flashOverlay.classList.add('hidden');
+};
 
-        // Validate that board has required files for flashing
-        if (!state.selected.manifest) {
-            appendLog(`Error: ${state.selected.variant} does not have a manifest file for flashing.`, 'error');
-            return;
-        }
+const updateProgressUI = (stage, percent, message) => {
+    if (selectors.flashStage) {
+        selectors.flashStage.textContent = message || stage;
+    }
+    if (selectors.flashPercent) {
+        selectors.flashPercent.textContent = `${Math.round(percent)}%`;
+    }
+    if (selectors.flashProgressFill) {
+        selectors.flashProgressFill.style.width = `${percent}%`;
+    }
+};
 
-        // Mark that an install is pending; capture starts once the installer dialog appears
-        state.pendingInstall = true;
-        appendLog('Installer launching. Select your serial port to continue.', 'info');
-    });
+// Port selector management
+const showPortSelector = () => {
+    return new Promise(async (resolve) => {
+        const dialog = selectors.portSelectorDialog;
+        const portList = selectors.portList;
 
-    selectors.downloadOtaBtn.addEventListener('click', async () => {
-        if (!state.selected) {
-            appendLog('Select a board before downloading OTA files.', 'warn');
-            return;
-        }
-
-        // Check if board has OTA directory
+        // Get previously authorized ports
+        let ports = [];
         try {
-            const otaCheckResponse = await fetch(`./firmware/${state.selected.id}/OTA/firmware.bin`, { method: 'HEAD' });
-            if (!otaCheckResponse.ok) {
-                appendLog(`Warning: OTA files not available for ${state.selected.variant}. Download may be incomplete.`, 'warn');
+            ports = await state.flasher.getAuthorizedPorts();
+        } catch (e) {
+            appendLog(`Failed to get ports: ${e.message}`, 'warn');
+        }
+
+        // Clear and populate port list
+        portList.innerHTML = '';
+
+        if (ports.length === 0) {
+            portList.innerHTML = '<p class="muted">No previously authorized ports found.</p>';
+        } else {
+            ports.forEach((port, index) => {
+                const info = EspFlasher.getPortInfo(port);
+                const item = document.createElement('div');
+                item.className = 'port-item';
+                item.innerHTML = `
+                    <div class="port-item-icon">USB</div>
+                    <div class="port-item-info">
+                        <strong>Port ${index + 1}</strong>
+                        <small>VID: ${info.vendorId} PID: ${info.productId}</small>
+                    </div>
+                `;
+                item.addEventListener('click', () => {
+                    dialog.classList.add('hidden');
+                    resolve(port);
+                });
+                portList.appendChild(item);
+            });
+        }
+
+        // Handle "authorize new" button
+        const authorizeHandler = async () => {
+            dialog.classList.add('hidden');
+            try {
+                appendLog('Opening browser port selector...', 'info');
+                const newPort = await state.flasher.requestNewPort();
+                resolve(newPort);
+            } catch (e) {
+                if (e.name !== 'NotAllowedError') {
+                    appendLog(`Port selection cancelled or failed: ${e.message}`, 'warn');
+                }
+                resolve(null);
             }
-        } catch (error) {
-            appendLog(`Warning: Unable to verify OTA files for ${state.selected.variant}: ${error.message}`, 'warn');
-        }
+        };
 
-        await downloadOtaFiles(state.selected.id);
-    });
+        // Clean up old listener and add new one
+        const newAuthorizeBtn = selectors.authorizeNewPort.cloneNode(true);
+        selectors.authorizeNewPort.parentNode.replaceChild(newAuthorizeBtn, selectors.authorizeNewPort);
+        selectors.authorizeNewPort = newAuthorizeBtn;
+        newAuthorizeBtn.addEventListener('click', authorizeHandler);
 
-    selectors.copyLogBtn.addEventListener('click', async () => {
-        const text = selectors.logStream.innerText.trim();
-        if (!text) return;
-        try {
-            await navigator.clipboard.writeText(text);
-            appendLog('Log copied to clipboard.', 'info');
-        } catch (error) {
-            appendLog(`Clipboard copy failed: ${error.message}`, 'error');
-        }
-    });
+        // Handle backdrop click to close
+        const backdrop = dialog.querySelector('.port-selector-backdrop');
+        const closeBtn = dialog.querySelector('.port-selector-close');
 
-    selectors.clearLogBtn.addEventListener('click', () => {
-        selectors.logStream.innerHTML = '<p class="muted">Log cleared.</p>';
-        if (state.dialogLogStream) {
-            state.dialogLogStream.innerHTML = '<p class="muted">Log cleared.</p>';
-        }
+        const closeHandler = () => {
+            dialog.classList.add('hidden');
+            resolve(null);
+        };
+
+        backdrop.onclick = closeHandler;
+        if (closeBtn) closeBtn.onclick = closeHandler;
+
+        // Show dialog
+        dialog.classList.remove('hidden');
     });
 };
 
-const observeInstallerDialog = () => {
-    const styleEmbeddedDialog = (dialog) => {
-        // Force the ESP Web Tools dialog to live inside our overlay without its own scrim
-        try {
-            const root = dialog.shadowRoot;
-            if (!root) return;
-            const ewDialog = root.querySelector('ew-dialog');
-            const ewRoot = ewDialog?.shadowRoot || null;
-            const innerDialog = ewRoot?.querySelector('dialog');
-            const scrim = root.querySelector('.mdc-dialog__scrim');
-            const surface = root.querySelector('.mdc-dialog__surface');
-            const container = root.querySelector('.mdc-dialog__container');
-            const content = root.querySelector('.mdc-dialog__content');
-            const title = root.querySelector('.mdc-dialog__title');
-            const actions = root.querySelector('.mdc-dialog__actions');
-            if (scrim) scrim.style.display = 'none';
-            if (ewDialog) ewDialog.removeAttribute('open');
-            if (ewRoot) {
-                const innerScrim = ewRoot.querySelector('.scrim');
-                const innerSurface = ewRoot.querySelector('.dialog-surface');
-                const innerContainer = ewRoot.querySelector('.dialog-container');
-                const innerContent = ewRoot.querySelector('div[slot="content"]');
-                const innerHeader = ewRoot.querySelector('div[slot="headline"]');
-                if (innerScrim) innerScrim.style.display = 'none';
-                if (innerSurface) {
-                    innerSurface.style.background = 'transparent';
-                    innerSurface.style.boxShadow = 'none';
-                    innerSurface.style.border = 'none';
-                    innerSurface.style.width = '100%';
-                    innerSurface.style.maxWidth = '100%';
-                    innerSurface.style.padding = '0';
-                }
-                if (innerContainer) {
-                    innerContainer.style.background = 'transparent';
-                    innerContainer.style.boxShadow = 'none';
-                    innerContainer.style.border = 'none';
-                    innerContainer.style.width = '100%';
-                    innerContainer.style.maxWidth = '100%';
-                    innerContainer.style.padding = '0';
-                    innerContainer.style.position = 'static';
-                    innerContainer.style.inset = 'auto';
-                    innerContainer.style.transform = 'none';
-                }
-                if (innerContent) {
-                    innerContent.style.background = 'transparent';
-                    innerContent.style.boxShadow = 'none';
-                    innerContent.style.border = 'none';
-                    innerContent.style.padding = '0';
-                    innerContent.style.color = 'var(--text-primary)';
-                }
-                if (innerHeader) {
-                    innerHeader.style.background = 'transparent';
-                    innerHeader.style.color = 'var(--text-primary)';
-                    innerHeader.style.padding = '0';
-                }
-                if (innerDialog) {
-                    innerDialog.style.background = 'transparent';
-                    innerDialog.style.boxShadow = 'none';
-                    innerDialog.style.border = 'none';
-                    innerDialog.style.padding = '0';
-                    innerDialog.style.margin = '0';
-                    innerDialog.style.maxWidth = '100%';
-                    innerDialog.style.width = '100%';
-                }
-                if (ewDialog) {
-                    ewDialog.style.setProperty('--md-sys-color-surface', 'transparent');
-                    ewDialog.style.setProperty('--md-sys-color-surface-container', 'transparent');
-                    ewDialog.style.setProperty('--md-sys-color-surface-container-low', 'transparent');
-                    ewDialog.style.setProperty('--md-sys-color-surface-container-high', 'transparent');
-                    ewDialog.style.setProperty('--md-sys-color-surface-container-highest', 'transparent');
-                    ewDialog.style.setProperty('--md-sys-color-primary', 'var(--text-primary)');
-                }
-                ewDialog.style.position = 'static';
-                ewDialog.style.inset = 'auto';
-                ewDialog.style.transform = 'none';
-                ewDialog.style.background = 'transparent';
-                ewDialog.style.width = '100%';
-                ewDialog.style.maxWidth = '100%';
-                ewDialog.style.margin = '0';
-            }
-            [surface, container].forEach((el) => {
-                if (!el) return;
-                el.style.position = 'static';
-                el.style.inset = 'auto';
-                el.style.transform = 'none';
-                el.style.boxShadow = 'none';
-                el.style.background = 'transparent';
-                el.style.width = '100%';
-                el.style.maxWidth = '100%';
-            });
-            [content, title, actions].forEach((el) => {
-                if (!el) return;
-                el.style.background = 'transparent';
-                el.style.color = 'var(--text-primary)';
-                el.style.boxShadow = 'none';
-                el.style.border = 'none';
-            });
-            if (surface) {
-                surface.style.padding = '0';
-                surface.style.border = 'none';
-            }
-        } catch (err) {
-            console.warn('Failed to restyle install dialog', err);
-        }
-    };
+const startFlashing = async () => {
+    if (!state.selected) {
+        appendLog('Select a board before flashing.', 'warn');
+        return;
+    }
 
-    const observer = new MutationObserver(() => {
-        const dialog = document.querySelector('ewt-install-dialog');
-        if (dialog && !state.dialogOpen) {
-            state.dialogOpen = true;
-            dialog.classList.add('ewt-embedded');
-            dialog.removeAttribute('open');
-            styleEmbeddedDialog(dialog);
-            if (state.dialogSlot && dialog.parentElement !== state.dialogSlot) {
-                state.dialogSlot.appendChild(dialog);
+    if (!state.selected.manifest) {
+        appendLog(`Error: ${state.selected.variant} does not have a manifest file for flashing.`, 'error');
+        return;
+    }
+
+    state.flashing = true;
+    updateButtonStates();
+
+    appendLog(`Preparing to flash ${state.selected.variant}...`, 'info');
+
+    // Show port selector
+    const port = await showPortSelector();
+
+    if (!port) {
+        appendLog('No port selected. Flash cancelled.', 'warn');
+        state.flashing = false;
+        updateButtonStates();
+        return;
+    }
+
+    // Show flash overlay
+    showFlashOverlay();
+    appendFlashLog(`Starting flash for ${state.selected.variant}`, 'info');
+
+    try {
+        // Get manifest URL (use patched if WiFi credentials provided)
+        let manifestUrl = resolveAssetUrl(state.selected.manifest);
+
+        // Check if WiFi patcher has a patched manifest
+        if (state.wifiPatcher && state.wifiPatcher.getPatchedManifestUrl) {
+            const patchedUrl = state.wifiPatcher.getPatchedManifestUrl();
+            if (patchedUrl) {
+                manifestUrl = patchedUrl;
+                appendFlashLog('Using WiFi-patched firmware', 'info');
             }
-            toggleDialogLogOverlay(true);
-            if (state.pendingInstall) {
-                const label = state.selected?.variant || 'Unknown board';
-                startCapture(label);
-                state.pendingInstall = false;
-            }
-            appendLog('Installer dialog opened. Follow the prompts to select the serial port.', 'info');
-        } else if (!dialog && state.dialogOpen) {
-            state.dialogOpen = false;
-            stopCapture('Installer dialog closed.');
         }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+
+        // Start flashing
+        await state.flasher.flash(port, manifestUrl);
+
+        appendFlashLog('Flash completed successfully!', 'success');
+
+    } catch (error) {
+        appendFlashLog(`Flash failed: ${error.message}`, 'error');
+    } finally {
+        state.flashing = false;
+        updateButtonStates();
+    }
 };
 
 const downloadOtaFiles = async (boardId) => {
+    const originalText = selectors.downloadOtaBtn.textContent;
     try {
         appendLog(`Starting OTA download for ${boardId}...`, 'info');
 
         // Update button state during download
-        const originalText = selectors.downloadOtaBtn.textContent;
         selectors.downloadOtaBtn.textContent = 'Downloading...';
         selectors.downloadOtaBtn.disabled = true;
 
@@ -591,24 +494,95 @@ const downloadOtaFiles = async (boardId) => {
     }
 };
 
+const attachEvents = () => {
+    selectors.boardSelect.addEventListener('change', (event) => {
+        const board = state.boards.find((item) => item.id === event.target.value);
+        hydrateBoardDetails(board);
+        appendLog(`Switched to ${board?.variant || 'unknown board'}`, 'info');
+    });
+
+    selectors.flashTrigger.addEventListener('click', startFlashing);
+
+    selectors.downloadOtaBtn.addEventListener('click', async () => {
+        if (!state.selected) {
+            appendLog('Select a board before downloading OTA files.', 'warn');
+            return;
+        }
+
+        // Check if board has OTA directory
+        try {
+            const otaCheckResponse = await fetch(`./firmware/${state.selected.id}/OTA/firmware.bin`, { method: 'HEAD' });
+            if (!otaCheckResponse.ok) {
+                appendLog(`Warning: OTA files not available for ${state.selected.variant}. Download may be incomplete.`, 'warn');
+            }
+        } catch (error) {
+            appendLog(`Warning: Unable to verify OTA files for ${state.selected.variant}: ${error.message}`, 'warn');
+        }
+
+        await downloadOtaFiles(state.selected.id);
+    });
+
+    selectors.copyLogBtn.addEventListener('click', async () => {
+        const text = selectors.logStream.innerText.trim();
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            appendLog('Log copied to clipboard.', 'info');
+        } catch (error) {
+            appendLog(`Clipboard copy failed: ${error.message}`, 'error');
+        }
+    });
+
+    selectors.clearLogBtn.addEventListener('click', () => {
+        selectors.logStream.innerHTML = '<p class="muted">Log cleared.</p>';
+    });
+
+    // Flash overlay close button
+    if (selectors.flashOverlayClose) {
+        selectors.flashOverlayClose.addEventListener('click', () => {
+            if (!state.flashing) {
+                hideFlashOverlay();
+            }
+        });
+    }
+};
+
 const init = async () => {
-    createDialogLogOverlay();
-    installConsoleCapture();
+    // Check Web Serial support
+    if (!('serial' in navigator)) {
+        appendLog('Web Serial API is unavailable in this browser.', 'warn');
+        if (selectors.webSerialWarning) {
+            selectors.webSerialWarning.style.display = 'block';
+        }
+        selectors.flashTrigger.disabled = true;
+    }
+
+    // Initialize flasher
+    state.flasher = new EspFlasher({
+        onProgress: (stage, percent, message) => {
+            updateProgressUI(stage, percent, message);
+        },
+        onLog: (message, level) => {
+            appendFlashLog(message, level);
+        },
+        onStateChange: (newState) => {
+            // Handle state changes if needed
+        }
+    });
+
     attachEvents();
-    observeInstallerDialog();
+
+    // Initialize WiFi patcher (without installButton reference)
     state.wifiPatcher = initWifiPatcher({
-        installButton: selectors.installButton,
         openButton: selectors.wifiAcceptBtn,
         dialog: selectors.wifiPatchDialog,
         form: selectors.wifiForm,
         statusEl: selectors.wifiStatus,
         log: appendLog
     });
+
     await fetchVersioning();
     await fetchBoards();
-    if (!('serial' in navigator)) {
-        appendLog('Web Serial API is unavailable in this browser.', 'warn');
-    }
 };
 
 document.addEventListener('DOMContentLoaded', init);

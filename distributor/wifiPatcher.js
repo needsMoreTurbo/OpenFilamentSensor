@@ -56,14 +56,17 @@ const patchBuffer = (buffer, ssid, passwd) => {
 const defaultLog = () => {};
 
 export function initWifiPatcher({ installButton, openButton, dialog, form, statusEl, log = defaultLog }) {
-    if (!installButton || !openButton || !dialog || !form || !statusEl) {
+    // installButton is now optional since we're using custom flasher
+    if (!openButton || !dialog || !form || !statusEl) {
         return {
             updateBaseManifest: () => {},
-            clearPatch: () => {}
+            clearPatch: () => {},
+            getPatchedManifestUrl: () => null,
+            patchFirmware: async () => { throw new Error('WiFi patcher not initialized'); }
         };
     }
 
-    let baseManifest = installButton.getAttribute('manifest') || '';
+    let baseManifest = installButton?.getAttribute('manifest') || '';
     let manifestBlobUrl = null;
     let binaryBlobUrl = null;
     let patching = false;
@@ -95,12 +98,19 @@ export function initWifiPatcher({ installButton, openButton, dialog, form, statu
         patchApplied = false;
         openButton.disabled = false;
         openButton.textContent = defaultOpenLabel;
-        if (baseManifest) {
-            installButton.setAttribute('manifest', baseManifest);
-        } else {
-            installButton.removeAttribute('manifest');
+        // Only update installButton if it exists (legacy ESP Web Tools support)
+        if (installButton) {
+            if (baseManifest) {
+                installButton.setAttribute('manifest', baseManifest);
+            } else {
+                installButton.removeAttribute('manifest');
+            }
         }
         setStatus(DEFAULT_STATUS_MESSAGE);
+    };
+
+    const getPatchedManifestUrl = () => {
+        return patchApplied ? manifestBlobUrl : null;
     };
 
     const updateBaseManifest = (manifestUrl) => {
@@ -157,7 +167,10 @@ export function initWifiPatcher({ installButton, openButton, dialog, form, statu
                 URL.revokeObjectURL(manifestBlobUrl);
             }
             manifestBlobUrl = URL.createObjectURL(new Blob([JSON.stringify(patchedManifest)], { type: 'application/json' }));
-            installButton.setAttribute('manifest', manifestBlobUrl);
+            // Only update installButton if it exists (legacy ESP Web Tools support)
+            if (installButton) {
+                installButton.setAttribute('manifest', manifestBlobUrl);
+            }
         }
 
         patchApplied = true;
@@ -215,6 +228,7 @@ export function initWifiPatcher({ installButton, openButton, dialog, form, statu
     return {
         updateBaseManifest,
         clearPatch: clearPatches,
-        patchFirmware
+        patchFirmware,
+        getPatchedManifestUrl
     };
 }
