@@ -9,19 +9,13 @@ from typing import Dict, Optional
 
 # Board to chip family mapping for CHIP_FAMILY environment variable
 # Format: <optionalmanufacturer> <chipbase>-<chiptype>
-# Examples: "ESP32", "ESP32-S3", "seeed ESP32-C3"
+# Examples: "ESP32", "ESP32-S3", "Seeed ESP32-C3"
 BOARD_TO_CHIP_FAMILY: Dict[str, str] = {
-    "esp32-dev": "ESP32",
-    "esp32-build": "ESP32",
-    "esp32-s3-dev": "ESP32-S3",
-    "esp32-s3-build": "ESP32-S3",
-    "seeed_xiao_esp32s3-dev": "seeed ESP32-S3",
-    "seeed_xiao_esp32s3-build": "seeed ESP32-S3",
-    "seeed_xiao_esp32c3-dev": "seeed ESP32-C3",
-    "seeed_xiao_esp32c3-build": "seeed ESP32-C3",
-    "esp32-c3-supermini-dev": "ESP32-C3",
-    "esp32-c3-supermini-ota": "ESP32-C3",
-    "esp32c3supermini": "ESP32-C3",
+    "esp32s3": "ESP32-S3",
+    "esp32c3": "ESP32-C3",
+    "esp32": "ESP32 (WROOM)",
+    "seeed_esp32s3": "Seeed ESP32-S3",
+    "seeed_esp32c3": "Seeed ESP32-C3",
 }
 
 def get_chip_family_for_board(board_env: str) -> str:
@@ -30,7 +24,7 @@ def get_chip_family_for_board(board_env: str) -> str:
     Returns the appropriate chip family string or raises ValueError if unknown.
 
     Args:
-        board_env: PlatformIO environment name (e.g., "esp32-s3-dev")
+        board_env: PlatformIO environment name (e.g., "esp32s3")
 
     Returns:
         Chip family string (e.g., "ESP32-S3", "seeed ESP32-C3")

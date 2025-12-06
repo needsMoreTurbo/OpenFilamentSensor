@@ -39,13 +39,13 @@ IS_WSL = "microsoft" in os.uname().release.lower() if hasattr(os, "uname") else 
 
 class Settings:
     # Build settings
-    build_env = "esp32-s3"
+    build_env = "esp32s3"
     build_local = False
     build_ignore_secrets = False
     build_mode = "full"  # full, nofs, nobin
 
     # Release settings
-    release_env = "esp32-s3"
+    release_env = "esp32s3"
     release_version = "ver"  # skip, build, ver, release
 
     # Capture logs settings
@@ -61,12 +61,11 @@ class Settings:
 
 
 BUILD_ENV_OPTIONS = [
-    "esp32-s3",
+    "esp32s3",
+    "esp32c3",
     "esp32",
-    "seeed_xiao_esp32s3",
-    "seeed_xiao_esp32c3",
-    "esp32-c3-supermini-dev",
-    "esp32-c3-supermini-ota",
+    "seeed_esp32s3",
+    "seeed_esp32c3",
 ]
 
 BUILD_MODE_OPTIONS = {

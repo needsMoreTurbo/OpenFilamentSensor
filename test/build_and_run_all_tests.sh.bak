@@ -107,17 +107,6 @@ if [ -n "$PYTHON_BIN" ]; then
 fi
 
 # Run JavaScript/Node tests if available
-
-# Build and run Additional Edge Cases tests
-echo ""
-echo "Building Additional Edge Cases tests..."
-g++ -std=c++11 -o test_additional_edge_cases test_additional_edge_cases.cpp -I. -I..
-if [ $? -eq 0 ]; then
-    run_test "Additional Edge Cases & Integration Tests" "./test_additional_edge_cases"
-else
-    echo "✗ Failed to compile test_additional_edge_cases"
-    EXIT_CODE=1
-fi
 if command -v node &> /dev/null; then
     echo ""
     echo "========================================"

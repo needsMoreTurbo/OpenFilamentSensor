@@ -8,7 +8,7 @@ Usage (run from repo root):
   python tools/build_and_flash.py                    # Build Lite UI + firmware
 
 Options:
-  --env ENV            PlatformIO env to use (default: esp32-s3-dev)
+  --env ENV            PlatformIO env to use (default: esp32s3)
   --local              Only build Lite UI/filesystem; skip PlatformIO upload steps
   --ignore-secrets     Do not merge or package data/secrets.json
   --build-mode MODE    Build mode: (default) full build with merge, 'nofs' firmware only, 'nobin' filesystem only
@@ -205,44 +205,6 @@ def read_version_file(repo_root: str) -> tuple[int, int, int]:
     return (0, 0, 0)
 
 
-def write_version_file(repo_root: str, major: int, minor: int, build: int) -> str:
-    """Write version to .version file. Returns version string."""
-    version_path = os.path.join(repo_root, "data/.version")
-    version_str = f"{major}.{minor}.{build}"
-    with open(version_path, "w", encoding="utf-8") as f:
-        f.write(version_str)
-    return version_str
-
-
-def increment_version(repo_root: str, increment_type: Optional[str]) -> Optional[str]:
-    """
-    Increment version based on type:
-    - 'build': increment build number (0.0.0 -> 0.0.1)
-    - 'version': increment minor, reset build (0.0.12 -> 0.1.0)
-    - 'release': increment major, reset minor and build (0.1.12 -> 1.0.0)
-    Returns new version string or None if no increment requested.
-    """
-    if not increment_type:
-        return None
-
-    major, minor, build = read_version_file(repo_root)
-
-    if increment_type == "build":
-        build += 1
-    elif increment_type == "version":
-        minor += 1
-        build = 0
-    elif increment_type == "release":
-        major += 1
-        minor = 0
-        build = 0
-    else:
-        return None
-
-    version_str = write_version_file(repo_root, major, minor, build)
-    print(f"Version incremented to: v{version_str}")
-    return version_str
-
 
 def create_build_version(data_dir: str, repo_root: str) -> str:
     """Create build_version.txt with current version from .version file."""
@@ -281,8 +243,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--env",
-        default="esp32-s3-dev",
-        help="PlatformIO environment to use (default: esp32-s3-dev)",
+        default="esp32s3",
+        help="PlatformIO environment to use (default: esp32s3)",
     )
     parser.add_argument(
         "--local",
@@ -309,24 +271,6 @@ def main() -> None:
         "--firmware-label",
         default="alpha",
         help="Firmware version string to embed into the firmware binary (default: alpha).",
-    )
-
-    # Version increment arguments (mutually exclusive)
-    version_group = parser.add_mutually_exclusive_group()
-    version_group.add_argument(
-        "--increment-build",
-        action="store_true",
-        help="Increment build number (0.0.0 -> 0.0.1)",
-    )
-    version_group.add_argument(
-        "--increment-version",
-        action="store_true",
-        help="Increment version number and reset build (0.0.12 -> 0.1.0)",
-    )
-    version_group.add_argument(
-        "--increment-release",
-        action="store_true",
-        help="Increment release number and reset version and build (0.1.12 -> 1.0.0)",
     )
 
     args = parser.parse_args()
@@ -416,18 +360,6 @@ def main() -> None:
 
     if args.ignore_secrets:
         print("Skipping data/secrets.json merge (--ignore-secrets).")
-
-    # Handle version incrementing
-    increment_type = None
-    if args.increment_build:
-        increment_type = "build"
-    elif args.increment_version:
-        increment_type = "version"
-    elif args.increment_release:
-        increment_type = "release"
-
-    if increment_type:
-        increment_version(repo_root, increment_type)
 
     timestamp_path: Optional[str] = None
     version_path: Optional[str] = None

@@ -42,9 +42,9 @@ $PythonExe = "python"
 $Presets = @(
     # [PSCustomObject]@{
     #     Name        = "My favorite build"
-    #     Description = "esp32-s3-dev, local, ignore secrets, nofs"
+    #     Description = "esp32s3, local, ignore secrets, nofs"
     #     Command     = "build"   # e.g. 'build' | 'capture' | 'stream'
-    #     Settings    = @{ Env = "esp32-s3-dev"; Local = $true; IgnoreSecrets = $true; BuildMode = "nofs" }
+    #     Settings    = @{ Env = "esp32s3"; Local = $true; IgnoreSecrets = $true; BuildMode = "nofs" }
     # }
 )
 
@@ -53,7 +53,7 @@ $Presets = @(
 # =========================
 
 # --- build_and_flash.py defaults ---
-$Global:BuildEnv            = "esp32-s3-dev"
+$Global:BuildEnv            = "esp32s3"
 $Global:BuildLocal          = $false
 $Global:BuildIgnoreSecrets  = $false
 # "full" means no --build-mode flag (full build)
@@ -61,13 +61,11 @@ $Global:BuildMode           = "full"
 
 # Allowed env options (edit these to match your platformio.ini)
 $BuildEnvOptions = @(
-    "esp32-s3-dev",
-    "esp32-c3-dev",
-    "esp32-dev",
-    "esp32-s3-dev",
-    "seeed_xiao_esp32s3-dev",
-    "seeed_xiao_esp32c3-dev",
-    "esp32-c3-supermini-dev",
+    "esp32s3",
+    "esp32c3",
+    "esp32",
+    "seeed_esp32s3",
+    "seeed_esp32c3",
     "<enter manually>"
 )
 

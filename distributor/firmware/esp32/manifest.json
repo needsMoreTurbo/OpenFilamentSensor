@@ -1,13 +1,16 @@
 {
-  "name": "Centauri Carbon Motion Detector (ESP32)",
-  "version": "0.9.8",
-  "build_id": "2025.10.02-esp32",
+  "name": "Centauri Carbon Motion Detector (ESP32 WROOM)",
+  "version": "0.4.0",
+  "build_id": "2025.11.30-esp32-merged",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32",
       "parts": [
-        { "path": "firmware_merged.bin", "offset": 0 }
+        {
+          "path": "firmware_merged.bin",
+          "offset": 0
+        }
       ]
     }
   ]

@@ -150,13 +150,16 @@ jobs:
             This release includes firmware binaries for all supported board variants:
 
             #### 🎯 Supported Boards
-            - **ESP32-S3 Dev**: `esp32-s3-dev` - Main development board
-            - **Seeed XIAO ESP32-C3**: `seeed_xiao_esp32c3-dev` - Compact C3 board
+            - **ESP32-S3**: `esp32s3` - Main development board
+            - **ESP32-C3**: `esp32c3` - C3 SuperMini variant
+            - **ESP32 (WROOM)**: `esp32` - Original ESP32 dev board
+            - **Seeed XIAO ESP32-S3**: `seeed_esp32s3` - Seeed S3 variant
+            - **Seeed XIAO ESP32-C3**: `seeed_esp32c3` - Seeed C3 variant
 
             #### 📁 File Naming Convention
             - `centauri-{board}-{type}-{timestamp}.bin`
             - Types: `firmware`, `littlefs`, `firmware-merged`, `bootloader`, `partitions`
-            - Example: `centauri-esp32-s3-dev-firmware-merged-20241129_143022.bin`
+            - Example: `centauri-esp32s3-firmware-merged-20241129_143022.bin`
 
             #### 🚀 Flashing Instructions
 

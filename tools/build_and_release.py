@@ -6,9 +6,9 @@ Builds firmware with safe defaults and optionally copies clean firmware to distr
 Usage (run from repo root):
 
  python tools/build_and_release.py                                 # Standard release build
- python tools/build_and_release.py --env esp32-s3-dev              # Specific board
+ python tools/build_and_release.py --env esp32s3              # Specific board
  python tools/build_and_release.py --version release                 # Release version increment
- python tools/build_and_release.py --version skip --env esp32-dev       # Build only, no version update
+ python tools/build_and_release.py --version skip --env esp32       # Build only, no version update
 
 Features:
 - Always uses safe defaults: --local --ignore-secrets --increment-version
@@ -92,17 +92,11 @@ except ImportError as e:
 
 # Board to distributor directory mapping
 BOARD_TO_DISTRIBUTOR_DIR = {
-    "esp32-dev": "esp32",
-    "esp32-build": "esp32",
-    "esp32-s3-dev": "esp32s3",
-    "esp32-s3-build": "esp32s3",
-    "seeed_xiao_esp32s3-dev": "seeed_esp32s3",
-    "seeed_xiao_esp32s3-build": "seeed_esp32s3",
-    "seeed_xiao_esp32c3-dev": "seeed_esp32c3",
-    "seeed_xiao_esp32c3-build": "seeed_esp32c3",
-    "esp32-c3-supermini-dev": "esp32c3supermini",
-    "esp32-c3-supermini-ota": "esp32c3supermini",
-    "esp32c3supermini": "esp32c3supermini",
+    "esp32s3": "esp32s3",
+    "esp32c3": "esp32c3",
+    "esp32": "esp32",
+    "seeed_esp32s3": "seeed_esp32s3",
+    "seeed_esp32c3": "seeed_esp32c3",
 }
 
 
@@ -652,8 +646,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--env",
-        default="esp32-s3-dev",
-        help="PlatformIO environment to use (default: esp32-s3-dev)",
+        default="esp32s3",
+        help="PlatformIO environment to use (default: esp32s3)",
     )
     parser.add_argument(
         "--version",
