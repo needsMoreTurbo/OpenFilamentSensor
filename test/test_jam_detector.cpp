@@ -16,37 +16,8 @@
 unsigned long _mockMillis = 0;
 unsigned long millis() { return _mockMillis; }
 
-// Define header guards BEFORE including anything to prevent real headers
-#define LOGGER_H
-#define SETTINGS_DATA_H
-
-// Mock Logger class that matches the interface expected by JamDetector
-class Logger {
-public:
-    static Logger& getInstance() { static Logger inst; return inst; }
-    void log(const char* msg, int level = 0) { /* no-op */ }
-    void log(const void* msg, int level = 0) { /* no-op */ }
-    void logf(const char* fmt, ...) { /* no-op */ }
-    void logf(int level, const char* fmt, ...) { /* no-op */ }
-    void logVerbose(const char* fmt, ...) { /* no-op */ }
-    void logNormal(const char* fmt, ...) { /* no-op */ }
-    void logPinValues(const char* fmt, ...) { /* no-op */ }
-    int getLogLevel() const { return 0; }
-    void setLogLevel(int level) { /* no-op */ }
-};
-
-// Mock SettingsManager class
-class SettingsManager {
-public:
-    static SettingsManager& getInstance() { static SettingsManager inst; return inst; }
-    bool getVerboseLogging() const { return false; }
-    template<typename T> T getSetting(int offset) const { return T(); }
-    template<typename T> void setSetting(int offset, T value) { /* no-op */ }
-};
-
-// Define the macros that the source code expects
-#define logger Logger::getInstance()
-#define settingsManager SettingsManager::getInstance()
+// Shared mocks and macros for Logger/SettingsManager
+#include "test_mocks.h"
 
 // Include the actual implementation
 #include "../src/JamDetector.h"
