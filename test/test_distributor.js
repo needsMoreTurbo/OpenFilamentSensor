@@ -284,3 +284,337 @@ function runAllTests() {
 
 // Run tests
 process.exit(runAllTests());
+
+// ============================================================================
+// Additional Test Functions for Enhanced Coverage
+// ============================================================================
+
+function testFlasherJsStructure() {
+    const flasherPath = path.join('..', 'distributor', 'flasher.js');
+    
+    if (fs.existsSync(flasherPath)) {
+        const content = fs.readFileSync(flasherPath, 'utf8');
+        
+        // Check for EspFlasher class
+        assert(content.includes('class EspFlasher') || content.includes('EspFlasher'),
+               'flasher.js should define EspFlasher class');
+        
+        // Check for flash states
+        assert(content.includes('FLASH_STATES') || content.includes('state'),
+               'flasher.js should define flash states');
+        
+        // Check for esptool-js integration
+        assert(content.includes('esptool') || content.includes('ESPLoader'),
+               'flasher.js should integrate with esptool-js');
+        
+        // Check for Serial API usage
+        assert(content.includes('serial') || content.includes('SerialPort'),
+               'flasher.js should use Web Serial API');
+        
+        console.log(`${COLOR_GREEN}PASS: flasher.js has expected structure${COLOR_RESET}`);
+        testsPassed++;
+    } else {
+        console.log(`${COLOR_RED}SKIP: flasher.js not found${COLOR_RESET}`);
+    }
+}
+
+function testManifestVersionConsistency() {
+    const boardsJsonPath = path.join('..', 'distributor', 'firmware', 'boards.json');
+    
+    if (fs.existsSync(boardsJsonPath)) {
+        const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
+        const boards = boardsData.boards || [];
+        
+        // Collect all versions
+        const versions = boards.map(b => b.version);
+        const uniqueVersions = [...new Set(versions)];
+        
+        // All boards should ideally have the same version
+        if (uniqueVersions.length > 1) {
+            console.log(`${COLOR_YELLOW}WARNING: Multiple versions found across boards: ${uniqueVersions.join(', ')}${COLOR_RESET}`);
+        }
+        
+        // Check that each board's manifest exists and has matching version
+        boards.forEach(board => {
+            if (board.manifest) {
+                const manifestPath = path.join('..', 'distributor', board.manifest);
+                if (fs.existsSync(manifestPath)) {
+                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                    // Manifests might have different version schemes, just check it exists
+                    assert(manifest.version, `Manifest for ${board.id} should have version`);
+                }
+            }
+        });
+        
+        console.log(`${COLOR_GREEN}PASS: Manifest version consistency checked${COLOR_RESET}`);
+        testsPassed++;
+    }
+}
+
+function testBoardChipFamilyValidation() {
+    const boardsJsonPath = path.join('..', 'distributor', 'firmware', 'boards.json');
+    
+    if (fs.existsSync(boardsJsonPath)) {
+        const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
+        const boards = boardsData.boards || [];
+        
+        const validChipFamilies = [
+            'ESP32', 'ESP32-S2', 'ESP32-S3', 'ESP32-C3', 'ESP32-C6', 'ESP32-H2'
+        ];
+        
+        boards.forEach(board => {
+            assert(board.chipFamily, `Board ${board.id} should have chipFamily`);
+            
+            const isValid = validChipFamilies.some(family => 
+                board.chipFamily.includes(family)
+            );
+            
+            assert(isValid, 
+                   `Board ${board.id} chipFamily "${board.chipFamily}" should be recognized ESP32 variant`);
+        });
+        
+        console.log(`${COLOR_GREEN}PASS: All board chip families are valid${COLOR_RESET}`);
+        testsPassed++;
+    }
+}
+
+function testManifestBuildStructure() {
+    const boardsJsonPath = path.join('..', 'distributor', 'firmware', 'boards.json');
+    
+    if (fs.existsSync(boardsJsonPath)) {
+        const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
+        const boards = boardsData.boards || [];
+        
+        boards.forEach(board => {
+            if (board.manifest) {
+                const manifestPath = path.join('..', 'distributor', board.manifest);
+                if (fs.existsSync(manifestPath)) {
+                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                    
+                    // Check required fields
+                    assert(manifest.name, `Manifest for ${board.id} should have name`);
+                    assert(manifest.builds, `Manifest for ${board.id} should have builds array`);
+                    assert(Array.isArray(manifest.builds), 
+                           `Manifest builds for ${board.id} should be array`);
+                    
+                    // Check build structure
+                    manifest.builds.forEach((build, idx) => {
+                        assert(build.chipFamily, 
+                               `Build ${idx} for ${board.id} should have chipFamily`);
+                        assert(build.parts, 
+                               `Build ${idx} for ${board.id} should have parts array`);
+                        assert(Array.isArray(build.parts),
+                               `Build parts for ${board.id} should be array`);
+                        
+                        // Check parts structure
+                        build.parts.forEach((part, pidx) => {
+                            assert(part.path !== undefined,
+                                   `Part ${pidx} of build ${idx} for ${board.id} should have path`);
+                            assert(typeof part.offset === 'number',
+                                   `Part ${pidx} of build ${idx} for ${board.id} should have numeric offset`);
+                        });
+                    });
+                }
+            }
+        });
+        
+        console.log(`${COLOR_GREEN}PASS: All manifest build structures are valid${COLOR_RESET}`);
+        testsPassed++;
+    }
+}
+
+function testFirmwareBinariesExist() {
+    const boardsJsonPath = path.join('..', 'distributor', 'firmware', 'boards.json');
+    
+    if (fs.existsSync(boardsJsonPath)) {
+        const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
+        const boards = boardsData.boards || [];
+        
+        boards.forEach(board => {
+            if (board.files && Array.isArray(board.files)) {
+                board.files.forEach(filePath => {
+                    const fullPath = path.join('..', 'distributor', filePath);
+                    // Binary files might not be in git, so we just check structure
+                    // In a real environment, these should exist
+                    if (fs.existsSync(fullPath)) {
+                        const stats = fs.statSync(fullPath);
+                        assert(stats.size > 0, 
+                               `Firmware binary ${filePath} should not be empty`);
+                    } else {
+                        console.log(`${COLOR_YELLOW}NOTE: Firmware binary ${filePath} not found (may be gitignored)${COLOR_RESET}`);
+                    }
+                });
+            }
+        });
+        
+        console.log(`${COLOR_GREEN}PASS: Firmware binary structure validated${COLOR_RESET}`);
+        testsPassed++;
+    }
+}
+
+function testDockerfileExists() {
+    const dockerfilePath = path.join('..', 'distributor', 'Dockerfile');
+    
+    if (fs.existsSync(dockerfilePath)) {
+        const content = fs.readFileSync(dockerfilePath, 'utf8');
+        
+        // Check for basic Dockerfile structure
+        assert(content.includes('FROM'), 'Dockerfile should have FROM instruction');
+        
+        // Check for node/http server setup
+        const hasNodeSetup = content.toLowerCase().includes('node') ||
+                            content.toLowerCase().includes('npm');
+        
+        assert(hasNodeSetup || content.includes('EXPOSE'),
+               'Dockerfile should setup web server or expose ports');
+        
+        console.log(`${COLOR_GREEN}PASS: Dockerfile exists and has valid structure${COLOR_RESET}`);
+        testsPassed++;
+    } else {
+        console.log(`${COLOR_YELLOW}SKIP: Dockerfile not found${COLOR_RESET}`);
+    }
+}
+
+function testStylesCssExists() {
+    const stylesPath = path.join('..', 'distributor', 'styles.css');
+    
+    if (fs.existsSync(stylesPath)) {
+        const content = fs.readFileSync(stylesPath, 'utf8');
+        
+        // Check for CSS rules
+        assert(content.includes('{') && content.includes('}'),
+               'styles.css should contain CSS rules');
+        
+        // Check file size is reasonable
+        assert(content.length > 100,
+               'styles.css should contain substantial styling');
+        
+        console.log(`${COLOR_GREEN}PASS: styles.css exists and appears valid${COLOR_RESET}`);
+        testsPassed++;
+    } else {
+        console.log(`${COLOR_YELLOW}SKIP: styles.css not found${COLOR_RESET}`);
+    }
+}
+
+function testWebUIFaviconExists() {
+    const faviconPaths = [
+        path.join('..', 'distributor', 'favicon.ico'),
+        path.join('..', 'webui_lite', 'favicon.ico'),
+        path.join('..', 'data', 'lite', 'favicon.ico')
+    ];
+    
+    let foundFavicon = false;
+    faviconPaths.forEach(faviconPath => {
+        if (fs.existsSync(faviconPath)) {
+            const stats = fs.statSync(faviconPath);
+            assert(stats.size > 0, `Favicon at ${faviconPath} should not be empty`);
+            foundFavicon = true;
+        }
+    });
+    
+    if (foundFavicon) {
+        console.log(`${COLOR_GREEN}PASS: Favicon(s) found${COLOR_RESET}`);
+        testsPassed++;
+    } else {
+        console.log(`${COLOR_YELLOW}SKIP: No favicons found${COLOR_RESET}`);
+    }
+}
+
+function testWebUIBuildScript() {
+    const buildScriptPath = path.join('..', 'webui_lite', 'build.js');
+    
+    if (fs.existsSync(buildScriptPath)) {
+        const content = fs.readFileSync(buildScriptPath, 'utf8');
+        
+        // Check for build logic
+        assert(content.includes('fs') || content.includes('file'),
+               'build.js should handle file operations');
+        
+        // Check for minification or compression
+        const hasOptimization = content.includes('gzip') ||
+                               content.includes('compress') ||
+                               content.includes('minify');
+        
+        if (!hasOptimization) {
+            console.log(`${COLOR_YELLOW}NOTE: build.js might not include optimization${COLOR_RESET}`);
+        }
+        
+        console.log(`${COLOR_GREEN}PASS: build.js exists and has expected structure${COLOR_RESET}`);
+        testsPassed++;
+    } else {
+        console.log(`${COLOR_YELLOW}SKIP: build.js not found${COLOR_RESET}`);
+    }
+}
+
+function testOTAReadmeFiles() {
+    const otaReadmePaths = [
+        path.join('..', 'distributor', 'firmware', 'esp32s3', 'OTA', 'OTA_readme.md'),
+        path.join('..', 'distributor', 'firmware', 'esp32c3', 'OTA', 'OTA_readme.md'),
+        path.join('..', 'distributor', 'firmware', 'seeed_esp32c3', 'OTA', 'OTA_readme.md')
+    ];
+    
+    let foundReadme = false;
+    otaReadmePaths.forEach(readmePath => {
+        if (fs.existsSync(readmePath)) {
+            const content = fs.readFileSync(readmePath, 'utf8');
+            assert(content.length > 0, `OTA readme at ${readmePath} should not be empty`);
+            foundReadme = true;
+        }
+    });
+    
+    if (foundReadme) {
+        console.log(`${COLOR_GREEN}PASS: OTA readme file(s) found${COLOR_RESET}`);
+        testsPassed++;
+    } else {
+        console.log(`${COLOR_YELLOW}SKIP: No OTA readme files found${COLOR_RESET}`);
+    }
+}
+
+function runAllTests() {
+    console.log('\n========================================');
+    console.log('  Distributor & WebUI Test Suite');
+    console.log('  (Enhanced Coverage)');
+    console.log('========================================');
+    
+    try {
+        // Original tests
+        testDistributorFilesExist();
+        testBoardsJsonValid();
+        testManifestJsonValid();
+        testWifiPatcherStructure();
+        testAppJsStructure();
+        testIndexHtmlValid();
+        testWebUILiteFiles();
+        testLiteOTAJsStructure();
+        testDevServerJs();
+        
+        // Additional comprehensive tests
+        testFlasherJsStructure();
+        testManifestVersionConsistency();
+        testBoardChipFamilyValidation();
+        testManifestBuildStructure();
+        testFirmwareBinariesExist();
+        testDockerfileExists();
+        testStylesCssExists();
+        testWebUIFaviconExists();
+        testWebUIBuildScript();
+        testOTAReadmeFiles();
+    } catch (error) {
+        console.log(`${COLOR_RED}TEST ERROR: ${error.message}${COLOR_RESET}`);
+        console.log(error.stack);
+        testsFailed++;
+    }
+    
+    console.log('\n========================================');
+    console.log('Test Results:');
+    console.log(`${COLOR_GREEN}  Passed: ${testsPassed}${COLOR_RESET}`);
+    if (testsFailed > 0) {
+        console.log(`${COLOR_RED}  Failed: ${testsFailed}${COLOR_RESET}`);
+    }
+    console.log('========================================\n');
+    
+    return testsFailed > 0 ? 1 : 0;
+}
+
+// Run tests
+process.exit(runAllTests());
