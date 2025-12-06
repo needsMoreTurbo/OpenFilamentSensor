@@ -13,6 +13,7 @@ void FilamentMotionSensor::reset()
     initialized           = false;
     firstPulseReceived    = false;  // Reset pulse tracking
     lastExpectedUpdateMs  = millis();
+    lastTotalExtrusionMm  = 0.0f;  // Reset extrusion baseline
 
     // Reset windowed state
     sampleCount           = 0;
@@ -31,7 +32,6 @@ void FilamentMotionSensor::reset()
 void FilamentMotionSensor::updateExpectedPosition(float totalExtrusionMm)
 {
     unsigned long currentTime = millis();
-    static float lastTotalExtrusionMm = 0.0f;
 
     if (!initialized)
     {
@@ -295,17 +295,14 @@ void FilamentMotionSensor::getWindowedRates(float &expectedRate, float &actualRa
         totalDurationMs += duration;
     }
 
-    if (totalDurationMs == 0)
+    // Require minimum duration to avoid division issues and unstable rate calculations
+    // 100ms minimum ensures reasonable rate values
+    if (totalDurationMs < 100)
     {
         return;
     }
 
     float durationSec = static_cast<float>(totalDurationMs) / 1000.0f;
-    if (durationSec <= 0.0f)
-    {
-        return;
-    }
-
     expectedRate = expectedSum / durationSec;
     actualRate   = actualSum / durationSec;
 }

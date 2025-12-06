@@ -36,7 +36,7 @@ String getBuildThumbprint(const char* date, const char* time) {
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     char month_str[4] = {0};
     int day, year;
-    sscanf(date, "%s %d %d", month_str, &day, &year);
+    sscanf(date, "%3s %d %d", month_str, &day, &year);  // %3s limits to 3 chars + null
 
     int month = 1;
     for (int i = 0; i < 12; i++) {
