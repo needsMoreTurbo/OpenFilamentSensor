@@ -14,49 +14,22 @@
 
 // Mock Arduino environment
 unsigned long _mockMillis = 0;
-unsigned long millis() { return _mockMillis; }
+#include "mocks/Arduino.h" // Provides millis()
+
+// Provide a mock for the global getTime() function needed by Logger.cpp
+unsigned long getTime() {
+    return _mockMillis / 1000;
+}
+
+// Shared test helpers (colors, time utilities, assertions)
+#include "mocks/test_mocks.h"
 
 // Include the actual implementation
 #include "../src/JamDetector.h"
 #include "../src/JamDetector.cpp"
 
-// Mock Logger (JamDetector depends on it)
-class MockLogger {
-public:
-    void log(const char* msg) { /* no-op */ }
-    void logf(const char* fmt, ...) { /* no-op */ }
-    void logVerbose(const char* fmt, ...) { /* no-op */ }
-    int getLogLevel() const { return 0; }
-};
-MockLogger logger;
-
-// Mock SettingsManager (JamDetector might depend on it)
-class MockSettingsManager {
-public:
-    bool getVerboseLogging() const { return false; }
-};
-MockSettingsManager settingsManager;
-
-// ANSI color codes for test output
-#define COLOR_GREEN   "\033[32m"
-#define COLOR_RED     "\033[31m"
-#define COLOR_YELLOW  "\033[33m"
-#define COLOR_RESET   "\033[0m"
-
 int testsPassed = 0;
 int testsFailed = 0;
-
-void resetMockTime() {
-    _mockMillis = 0;
-}
-
-void advanceTime(unsigned long ms) {
-    _mockMillis += ms;
-}
-
-bool floatEquals(float a, float b, float epsilon = 0.001f) {
-    return std::fabs(a - b) < epsilon;
-}
 
 void testReset() {
     std::cout << "\n=== Test: JamDetector Reset ===" << std::endl;

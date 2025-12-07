@@ -12,15 +12,16 @@
 #include <cassert>
 #include <cstring>
 
-// Mock Arduino environment
+// Mock Arduino environment - MUST come before any Arduino includes
 unsigned long _mockMillis = 0;
-unsigned long millis() { return _mockMillis; }
+#include "mocks/Arduino.h" // Provides millis() and Arduino mocks
 
 // Include the actual implementations
 #include "../src/JamDetector.h"
 #include "../src/JamDetector.cpp"
-#include "../src/SDCPProtocol.h"
-#include "../src/SDCPProtocol.cpp"
+
+// Use mock SDCP Protocol instead of real one (which has incompatible deps)
+#include "mocks/SDCPProtocol.h"
 
 // Mock Logger
 class MockLogger {

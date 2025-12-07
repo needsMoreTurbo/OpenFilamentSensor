@@ -111,10 +111,10 @@ class TestBuildScripts(unittest.TestCase):
     """Test build script functionality."""
     
     def test_build_script_exists_sh(self):
-        """Test that build_tests.sh exists and is executable."""
-        script_path = os.path.join(os.path.dirname(__file__), 'build_tests.sh')
+        """Test that build_and_run_all_tests.sh exists and is executable."""
+        script_path = os.path.join(os.path.dirname(__file__), 'build_and_run_all_tests.sh')
         self.assertTrue(os.path.exists(script_path))
-        
+
         if hasattr(os, 'access'):
             self.assertTrue(os.access(script_path, os.R_OK))
     
@@ -330,13 +330,13 @@ class TestGitHubWorkflow(unittest.TestCase):
 
     def test_release_workflow_exists(self):
         """Verify release-firmware.yml workflow exists"""
-        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', 'release-firmware.yml')
+        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', "release.yml")
         self.assertTrue(os.path.exists(workflow_path),
                        "release-firmware.yml workflow should exist")
     
     def test_workflow_has_matrix_build(self):
         """Verify workflow uses matrix build strategy"""
-        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', 'release-firmware.yml')
+        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', "release.yml")
         if os.path.exists(workflow_path):
             with open(workflow_path, 'r') as f:
                 content = f.read()
@@ -347,7 +347,7 @@ class TestGitHubWorkflow(unittest.TestCase):
     
     def test_workflow_builds_all_boards(self):
         """Verify workflow builds for all supported boards"""
-        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', 'release-firmware.yml')
+        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', "release.yml")
         targets_path = os.path.join(os.path.dirname(__file__), '..', 'tools', 'build-targets.yml')
         
         if os.path.exists(workflow_path) and os.path.exists(targets_path):
@@ -359,7 +359,7 @@ class TestGitHubWorkflow(unittest.TestCase):
     
     def test_workflow_creates_release(self):
         """Verify workflow has release creation step"""
-        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', 'release-firmware.yml')
+        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', "release.yml")
         if os.path.exists(workflow_path):
             with open(workflow_path, 'r') as f:
                 content = f.read()
@@ -372,7 +372,7 @@ class TestGitHubWorkflow(unittest.TestCase):
     
     def test_workflow_generates_checksums(self):
         """Verify workflow generates checksums for artifacts"""
-        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', 'release-firmware.yml')
+        workflow_path = os.path.join(os.path.dirname(__file__), '..', '.github', 'workflows', "release.yml")
         if os.path.exists(workflow_path):
             with open(workflow_path, 'r') as f:
                 content = f.read()
