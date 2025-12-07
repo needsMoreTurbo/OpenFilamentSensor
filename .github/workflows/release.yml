@@ -24,8 +24,12 @@ on:
         type: boolean
 
 jobs:
-  release:
+  create-release:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - env: all
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +49,7 @@ jobs:
       - name: Build all release targets
         run: |
           python tools/build_and_release.py \
-            --env all \
+            --env "${{ matrix.env }}" \
             --ignore-secrets \
             --version "${{ inputs.version-action }}" \
             --firmware-label "${{ inputs.firmware-label }}"

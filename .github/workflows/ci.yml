@@ -9,7 +9,7 @@ on:
 
 jobs:
   unit-tests:
-    name: Pulse simulator tests
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,9 +19,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++
 
-      - name: Run pulse simulator tests
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run all unit tests
+        working-directory: test
         run: |
-          bash test/build_tests.sh
+          chmod +x build_and_run_all_tests.sh
+          bash build_and_run_all_tests.sh
 
   build-all:
     name: Build all supported boards
@@ -30,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -39,7 +49,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio pyyaml
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 

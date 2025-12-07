@@ -12,14 +12,11 @@
 #include <cassert>
 #include <cstring>
 
-// Mock Arduino environment
+// Global mock time variable (used by millis() in test_mocks.h)
 unsigned long _mockMillis = 0;
-/**
- * @brief Provides the mock millisecond timestamp used by tests.
- *
- * @return unsigned long Current mock time in milliseconds.
- */
-unsigned long millis() { return _mockMillis; }
+
+// Mock Arduino environment - MUST come before any Arduino includes
+#include "mocks/Arduino.h" // Provides millis() and Arduino mocks
 
 // Shared mocks and macros for Logger/SettingsManager
 #include "test_mocks.h"
@@ -27,6 +24,12 @@ unsigned long millis() { return _mockMillis; }
 // Include the actual implementations
 #include "../src/JamDetector.h"
 #include "../src/JamDetector.cpp"
+
+// Use mock SDCP Protocol instead of real one (which has incompatible deps)
+#include "mocks/SDCPProtocol.h"
+
+// Logger and SettingsManager mocks are provided by mocks/Arduino.h
+// Test helper functions (resetMockTime, advanceTime, floatEquals) are in mocks/test_mocks.h
 // Note: SDCPProtocol tests are in test_sdcp_protocol.cpp to avoid dependency issues
 
 // ANSI color codes
@@ -37,18 +40,6 @@ unsigned long millis() { return _mockMillis; }
 
 int testsPassed = 0;
 int testsFailed = 0;
-
-void resetMockTime() {
-    _mockMillis = 0;
-}
-
-void advanceTime(unsigned long ms) {
-    _mockMillis += ms;
-}
-
-bool floatEquals(float a, float b, float epsilon = 0.001f) {
-    return std::fabs(a - b) < epsilon;
-}
 
 // ============================================================================
 // JamDetector Edge Cases
@@ -103,7 +94,7 @@ void testJamDetectorRapidStateChanges() {
  */
 void testJamDetectorVeryLongPrint() {
     std::cout << "\n=== Test: JamDetector Very Long Print Duration ===" << std::endl;
-    
+
     resetMockTime();
     JamDetector detector;
     JamConfig config;
@@ -114,32 +105,35 @@ void testJamDetectorVeryLongPrint() {
     config.hardJamTimeMs = 3000;
     config.ratioThreshold = 0.70f;
     config.detectionMode = DetectionMode::BOTH;
-    
+
     unsigned long printStartTime = 1000;
     _mockMillis = 1000;
     detector.reset(printStartTime);
-    
-    // Simulate a very long print (24 hours)
+
+    // Skip past grace period first (startTimeoutMs = 5000)
+    unsigned long graceEndTime = config.startTimeoutMs + config.graceTimeMs;
+
+    // Simulate a very long print (24 hours), starting after grace period
     unsigned long duration = 24UL * 60UL * 60UL * 1000UL;  // 24 hours in ms
     unsigned long interval = 60000;  // Update every minute
-    
-    for (unsigned long elapsed = 0; elapsed < duration; elapsed += interval) {
+
+    for (unsigned long elapsed = graceEndTime; elapsed < duration; elapsed += interval) {
         _mockMillis = printStartTime + elapsed;
-        
+
         float expectedDist = 50.0f;  // Consistent flow
         float actualDist = 49.0f;
-        
+
         JamState state = detector.update(
             expectedDist, actualDist, elapsed / 100,
             true, true, _mockMillis, printStartTime,
             config, 50.0f, 49.0f
         );
-        
-        // Should remain stable throughout - no false jams on healthy flow
+
+        // Should remain stable throughout (after grace period)
         assert(!state.jammed);
         // Note: graceState transitions from ACTIVE after graceTimeMs expires, which is expected
     }
-    
+
     std::cout << COLOR_GREEN << "PASS: Handles very long print durations" << COLOR_RESET << std::endl;
     testsPassed++;
 }
@@ -400,15 +394,16 @@ void testIntegrationMixedJamTypes() {
     }
     
     // Suddenly transition to hard jam
+    // Note: actualRate must be < MIN_ACTUAL_RATE_MM_S (0.05) to trigger hard jam
     advanceTime(1000);
     for (int i = 0; i < 5; i++) {
         advanceTime(500);
         JamState state = detector.update(
-            10.0f, 0.1f, 103 + i,  // Nearly zero flow
+            10.0f, 0.02f, 103 + i,  // Nearly zero flow
             true, true, _mockMillis, printStartTime,
-            config, 10.0f, 0.1f
+            config, 10.0f, 0.02f  // actualRate must be < 0.05
         );
-        
+
         if (state.jammed) {
             // Either hard or soft jam could trigger depending on timing
             // Both conditions were building - just verify a jam was detected
