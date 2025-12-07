@@ -1,88 +1,212 @@
-# Centauri Carbon Motion Detector
+# BigTreeTech Filament Motion Sensor with OpenCentauri Filament Reporting
 
-## What it does
+This project uses a BigTreeTech filament motion sensor and an ESP32, in addition to patched OpenCentauri firmware, to provide Klipper-like detection. The firmware uses SDCP telemetry from the printer to determine expected filament flow conditions, compares it to the physical pulse sensor, and pauses the printer when hard jams or severe under‑extrusion (soft jams elsewhere in documentation) are detected. An HTML dashboard served by the ESP32 provides status, configuration, and OTA updates.
 
-- Watches a BigTreeTech filament motion sensor that sits in the filament path.
-- Listens to your OpenCentauri-enabled Centauri Carbon over LAN wia websocket to determine how much filament should be moving.
-- Compares the expected data with the actual output of the BTT SFS, and uses multiple algorithms to determine different failure states (filament stop, partial clog, severe underextrusion).  This data and analysis allows for slow first layers, ironing, large travel moves, very slow print speeds, pauses etc. to occur without triggering a false positive.
-- Hosts a lightweight dashboard on the ESP32 so you can check status, tweak settings, grab logs, and load new firmware from any browser.
+## Highlights
 
-## What you need before you start
+- **Dual-mode jam detection** – windowed tracking plus hysteresis for hard/soft snags  
+- **Telemetry gap handling** – avoids false positives during communication drops  
+- **Lite Web UI** – pure HTML/CSS/JS (~50 KB gzipped) served directly from LittleFS  
+- **ElegantOTA built in** – visit `/update` for firmware uploads without serial cables  
+- **Comprehensive simulator** – 20 scenario tests plus log replay to guard against regressions
 
-- BigTreeTech filament motion sensor (SFS-style) installed in the filament line.
-- ESP32 (or another board listed in `platformio.ini`) plus USB-C cable.
-- If you would like to customize or build your own firmware - an environment with Python 3.10+ and Node.js 18+. The quick-start scripts confirm the versions for you.
+## Repository layout
 
-## Setup at a glance
+```
+data/                # LittleFS content (lite UI + settings templates)
+data_lite/           # Build output from webui_lite/ (generated)
+src/                 # ESP32 firmware (Arduino framework)
+test/                # Pulse simulator + fixtures
+webui_lite/          # Single-page Lite UI source
+```
 
-1. Plug the ESP32 into your computer.
-2. Download and flash the appropriate firmware for your board.  Online flash tools or CLI/VSCode etc all work
-3. Mount and wire the sensor to the ESP32 (or board of your choice).  Use the pins specified for your specific board in platformio.ini.
-4. Attach the sensor, power up the ESP32, and connect via a Wifi-enabled device.  Provide Wifi credentials.
-5. Reboot, reconnect, and configure settings.
+## Requirements
 
-## Step-by-step setup
+- PlatformIO Core (`pip install platformio` or via VS Code extension)
+- Python 3.10+
+- Node.js 18+ (for Lite UI build tooling)
+- ESP32‑S3 DevKitC‑1 (default) or other microcontrollers (via alternate envs)
 
-### 1. Flash firmware onto the ESP32
+## Quick start
 
-- Connect the board to your computer over USB-C.
-- Use your preferred flashing method (online WebSerial tool, VS Code + PlatformIO, or CLI) to load the `firmware_merged_####.bin` that matches your board definition.
-- Wait for the flashing process to finish and confirm the board reboots cleanly.
+### Option A: Standard Build (recommended for experienced users)
 
-### 2. Give the device your Wifi info through its access point
+Requires: Python 3.10+, Node.js 18+, PlatformIO Core
 
-- With the sensor attached, power cycle the ESP32 so it starts broadcasting `CentauriCarbon.local`.
-- Connect to that temporary Wifi from any phone, tablet, or computer.
-- Visit `http://centaurifilament.local`, open the Settings tab, and enter your home SSID plus password.
-- Scroll down, select Save Settings, and allow the automatic reboot. The ESP32 drops the temporary network and joins your main Wifi instead.
+```bash
+# Build Lite UI + firmware and flash via USB
+python tools/build_and_flash.py
 
-### 3. Prepare the hardware
+# Build artifacts only (no upload) – results land in data/ and .pio/
+python tools/build_and_flash.py --local
 
-- Install the BigTreeTech sensor in the filament path so the filament slides smoothly through the gears.
-- Power the sensor via 3v3 and GND from the ESP32.  (The sensor can optionally be connected directly to the filament detector wires provided by the CC - at this time, instructions are not provided for this implementation.  Use at your own risk.)  Wire the sensor leads to the ESP32 pins that match your board's entry in `platformio.ini`.
+# Target another board (see platformio.ini for env names)
+python tools/build_and_flash.py --env <board>
 
-### 4. Reconnect over your LAN
+# Reuse existing node_modules when rebuilding the UI
+python tools/build_and_flash.py --skip-npm-install
+```
 
-- Back on your normal Wifi, browse to `http://centaurifilament.local`. The About tab lists the current IP address if you prefer connecting directly.
-- Power the board from a reliable USB source - cheap power bricks can and will cause failures.
+### Option B: Portable Environment (no global dependencies)
 
-### 5. First run checklist
+Requires: Only Python 3.10+ and Node.js 18+
 
-- Confirm the dashboard loads at `http://centaurifilament.local` and the Status tab shows telemetry within a few seconds.
-- Start a small print. You should see pulse counts updating and the state remain on "Monitoring."
-- If you need the raw IP address for future logins, grab it from the About tab before you close the page.
+This creates an isolated build environment in `tools/.venv/` and `tools/.platformio/` without modifying your global Python or PlatformIO installations.
 
-## Dashboard
+```bash
+# One-time setup (installs PlatformIO and ESP32 toolchain locally)
+python tools/setup_local_env.py
 
-The ESP32 serves a single-page site with tabs along the top. Each tab has a clear job:
+# Build firmware using the portable environment
+python tools/build_local.py
 
-- **Status**: Real-time view of filament flow, jam warnings, and recent activity. Use this tab while printing.
-- **Settings**: Wifi, printer connection, and detection settings. After changing anything, select Save Settings and wait for the confirmation.
-- **Logs**: Shows the most recent lines from the firmware log. Download the full (last 1024 entries) text file for troubleshooting.
-- **Update**: Drag-and-drop a `firmware.bin` file generated by PlatformIO or click to browse for it. The ESP32 reboots automatically once the upload finishes.
-- **About**: Device information such as firmware version, build date, Wifi status, IP, and free memory. Helpful when confirming which image is currently installed.
+# Target another board
+python tools/build_local.py --env seeed_esp32c3
+```
 
-## Dev - Data overview
+### Option C: Quick Start Scripts
 
-- `data/` contains everything that ships with the ESP32 flash image:
-  - `data/user_settings.json` and `data/user_settings.secrets.json` (described above).
-  - `data/default_settings.json` includes safe defaults. The firmware copies these into your live settings on first boot.
-  - `data/webui/` (generated from `webui_lite/`) holds the HTML, CSS, and JavaScript for the dashboard.
-- `logs/` stores diagnostic files pulled from the device. Live logs are also accessible through the web interface via `/api/logs_live` or `/api/logs_text`.
-- `.pio/` is PlatformIO's build output. You can ignore it unless you are rebuilding firmware manually.
+```bash
+# Windows
+quick-start.bat
 
-## Dev - firmware and littleFS updates
+# Linux/Mac
+./quick-start.sh
+```
 
-- Rebuilding with `quick-start.bat` or `./quick-start.sh` always delivers the latest Lite UI and firmware combination.
-- For smaller updates, open the Update tab and upload the new `firmware.bin` that PlatformIO produced in `.pio/build/<board>/`.
-- The About tab lists both the firmware and filesystem thumbprints so you know exactly what is running before and after an update.
+These scripts verify your environment and guide you through the build process.
 
-## Troubleshooting basics
+## Troubleshooting
 
-- If the dashboard never loads, confirm the ESP32 LED is on and the board is still connected to Wifi. A quick reboot often fixes it.
-- If Status shows "No telemetry," verify the printer IP address in Settings and ensure the printer is powered on.
-- If you get frequent false pauses, raise the soft jam time slider slightly or run a short extrusion test to ensure the sensor wheel is free of dust.
-- Open an issue if the above do not resolve the issue.
+### Check Your Environment
+
+Before building, verify all dependencies are installed:
+
+```bash
+python tools/check_environment.py
+```
+
+This checks for:
+- Python 3.10+
+- Node.js 18+
+- npm
+- PlatformIO Core
+- ESP32 platform
+- ESP32 toolchain integrity
+
+### Build Fails: "FreeRTOS.h: No such file or directory"
+
+**Cause:** Corrupted or incomplete ESP32 platform installation in PlatformIO.
+
+**Solutions (try in order):**
+
+1. Clean and reinstall ESP32 platform:
+   ```bash
+   pio run --target clean
+   pio platform uninstall espressif32
+   pio platform install espressif32
+   python tools/build_and_flash.py
+   ```
+
+2. Clear global PlatformIO cache (nuclear option):
+   ```bash
+   # Windows
+   rmdir /s /q "%USERPROFILE%\.platformio"
+
+   # Linux/Mac
+   rm -rf ~/.platformio
+
+   # Then rebuild (PlatformIO will reinstall everything)
+   python tools/build_and_flash.py
+   ```
+
+3. Use the portable environment to avoid global state issues:
+   ```bash
+   python tools/setup_local_env.py
+   python tools/build_local.py
+   ```
+
+### Missing Dependencies
+
+If you're missing Python, Node.js, npm, or PlatformIO:
+
+**Python 3.10+:**
+- Download: https://www.python.org/downloads/
+- Ubuntu/Debian: `sudo apt install python3 python3-pip python3-venv`
+- macOS: `brew install python3`
+
+**Node.js 18+ (includes npm):**
+- Download: https://nodejs.org/ (LTS version recommended)
+- Ubuntu/Debian: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install nodejs`
+- macOS: `brew install node`
+
+**PlatformIO Core:**
+```bash
+pip install platformio
+
+# Or use the portable environment
+python tools/setup_local_env.py
+```
+
+### Build Succeeds but Upload Fails
+
+**Check USB connection:**
+- Ensure ESP32 board is connected via USB
+- Check that drivers are installed (especially on Windows)
+- Try a different USB cable (data cable, not charge-only)
+
+**Find the correct port:**
+```bash
+# List available serial ports
+pio device list
+```
+
+### Settings
+
+Edit `data/user_settings.json` with your Wi-Fi SSID, password, and Elegoo printer IP.
+
+For sensitive credentials, use `data/user_settings.secrets.json` (see `user_settings.secrets.json.example` in the repo root for format). The build script merges secrets into the filesystem image during build and restores the original file afterwards, keeping your secrets out of git.
+
+## Web UI
+
+- Local development: `cd webui_lite && npm install && npm run dev`.  
+- Production build artifacts live in `data/lite/` after running `npm run build` or the Python helper.  
+- OTA firmware updates remain available via `/update` (ElegantOTA).
+
+## Testing
+
+The pulse simulator exercises hard/soft jam logic, sparse infill, retractions, replayed logs, etc.
+
+```bash
+# From repo root
+wsl bash -lc "cd /mnt/c/Users/<you>/Documents/GitHub/cc_sfs/test && bash build_tests.sh"
+```
+
+All 20 tests must pass before releasing firmware (the build script does not run them automatically).
+
+## Logging & diagnostics
+
+- Live logs: `GET /api/logs_live` (last 100 entries, plain text).  
+- Full logs: `GET /api/logs_text` (downloadable .txt).  
+- Crash logs for triage can be stored under `logs/history/` but should be moved into `test/fixtures/` if they are used by automated tests (see `test/fixtures/log_for_test.txt`).
+
+## Customize / extend
+
+- Adjust jam thresholds, ratios, and telemetry windows via `SettingsManager` in `src/SettingsManager.*`.  
+- Add new Web UI cards or settings by editing `webui_lite/index.html` (no bundler required).  
+- New PlatformIO environments (e.g., Seeed boards) can be added to `platformio.ini` – remember to define `FILAMENT_RUNOUT_PIN` and `MOVEMENT_SENSOR_PIN`.
+
+## OTA workflow
+
+1. Build + flash firmware once via USB for a baseline image.  
+2. For future updates, visit `http://device-ip/update` (ElegantOTA interface) and upload the `firmware.bin` produced by PlatformIO.  
+3. The Lite UI can also push updates by using the local upload controls from its Update tab (it simply opens `/update` in a new window).
+
+## Contributing
+
+- Run `python tools/build_and_flash.py --local` before opening a PR (verifies the build still succeeds).  
+- Run the pulse simulator (`test/build_tests.sh`) whenever jam detection logic or fixture paths change.  
+- Keep the Lite UI small—prefer CSS variables/utility functions over large JS dependencies.
 
 ## License
 
