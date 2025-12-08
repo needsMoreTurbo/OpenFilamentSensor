@@ -1,143 +1,163 @@
 name: Release Firmware
 
 on:
-  workflow_dispatch:
-    inputs:
-      version-action:
-        description: "Version increment to apply (build, ver, release)"
-        required: false
-        default: ver
-        type: choice
-        options:
-          - build
-          - ver
-          - release
-      firmware-label:
-        description: "Firmware label injected into each binary"
-        required: false
-        default: release
-        type: string
-      prerelease:
-        description: "Draft this GitHub release as a prerelease"
-        required: false
-        default: false
-        type: boolean
+  push:
+    tags:
+      - 'v*' # Triggers on tags like v1.0, v2.3.4
+
+permissions:
+  contents: write # Required for softprops/action-gh-release to create a release
+  actions: read   # Required for the branch check
+  pull-requests: read # Required for softprops/action-gh-release
 
 jobs:
-  create-release:
+  build-firmware:
+    name: Build ${{ matrix.env }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - env: all
+        # All build environments from platformio.ini
+        env: [esp32, esp32s3, seeed_esp32s3, seeed_esp32c3, esp32c3, esp32c3supermini, esp32s2]
+    # This condition ensures the job only runs for tags on the 'build' branch.
+    if: >
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/') &&
+      github.run_id != '' &&
+      fromJSON(needs.check-branch.outputs.result).conclusion == 'success'
+    needs: check-branch
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history for git tags
 
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Install PlatformIO Core
-        run: |
-          python -m pip install --upgrade pip
-          pip install platformio pyyaml
+        run: pip install platformio
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '20'
+      - name: Get Version from Tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build all release targets
-        run: |
-          python tools/build_and_release.py \
-            --env "${{ matrix.env }}" \
-            --ignore-secrets \
-            --version "${{ inputs.version-action }}" \
-            --firmware-label "${{ inputs.firmware-label }}"
-
-      - name: Capture release metadata
-        id: release-info
-        run: |
-          VERSION=$(cat data/.version)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          MESSAGE=$(git log -1 --pretty=%B)
-          echo "message<<EOF" >> $GITHUB_OUTPUT
-          echo "$MESSAGE" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Publish distributor build artifacts
+      - name: Build target
         env:
-          BUILD_BRANCH: build
-          RELEASE_TAG: v${{ steps.release-info.outputs.version }}
-          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          FIRMWARE_VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          set -euo pipefail
-          CLONE_DIR=$(mktemp -d)
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git clone --depth 1 "${REPO_URL}" "${CLONE_DIR}"
-          cd "${CLONE_DIR}"
-          if git show-ref --verify --quiet "refs/remotes/origin/${BUILD_BRANCH}"; then
-            git checkout -B "${BUILD_BRANCH}" "origin/${BUILD_BRANCH}"
-          else
-            git checkout -B "${BUILD_BRANCH}"
-          fi
-          rsync -a --delete "${GITHUB_WORKSPACE}/distributor/firmware/" "${CLONE_DIR}/distributor/firmware/"
-          git add distributor/firmware
-          if git diff --cached --quiet; then
-            echo "Distributor branch already up to date."
-          else
-            git commit -m "Update distributor firmware for ${RELEASE_TAG}"
-            git push origin "${BUILD_BRANCH}"
-          fi
+          pio run -e ${{ matrix.env }}
 
-      - name: Prepare release artifacts
+      - name: Prepare build artifact
         run: |
-          mkdir -p release-assets
+          ARTIFACT_DIR="release-assets-${{ matrix.env }}"
+          mkdir -p "$ARTIFACT_DIR"
           python - <<'PY'
-          import yaml
           import shutil
           from pathlib import Path
+          import os
 
-          with open("tools/build-targets.yml", encoding="utf-8") as f:
-              envs = yaml.safe_load(f).get("platformio_envs", [])
+          env = os.environ["MATRIX_ENV"]
+          artifact_dir = Path(f"release-assets-{env}")
+          build_dir = Path(".pio") / "build" / env
 
-          artifact_dir = Path("release-assets")
           filenames = ["firmware.bin", "firmware_merged.bin", "littlefs.bin", "bootloader.bin", "partitions.bin"]
-          for env in envs:
-              build_dir = Path(".pio") / "build" / env
-              if not build_dir.exists():
-                  continue
-              for name in filenames:
-                  src = build_dir / name
-                  if src.exists():
-                      dest_name = f"{env}-{name}"
-                      shutil.copy2(src, artifact_dir / dest_name)
+
+          for name in filenames:
+              src = build_dir / name
+              if src.exists():
+                  dest_name = f"{env}-{name}"
+                  shutil.copy2(src, artifact_dir / dest_name)
           PY
-          ls release-assets
-          if compgen -G "release-assets/*.bin" >/dev/null; then
-            (
-              cd release-assets
-              sha256sum *.bin > checksums.txt
-            )
+        env:
+          MATRIX_ENV: ${{ matrix.env }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.env }}
+          path: release-assets-${{ matrix.env }}
+
+  check-branch:
+    name: Verify Tag on Build Branch
+    runs-on: ubuntu-latest
+    # This job always runs on a tag push to check the branch.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history to check branches
+
+      - name: Check if tag is on 'build' branch
+        id: check
+        run: |
+          # This command checks if the commit for the current tag is an ancestor of the 'build' branch.
+          # It exits with 0 (success) if it is, and 1 (failure) if it is not.
+          if git merge-base --is-ancestor ${{ github.sha }} origin/build; then
+            echo "Tag ${{ github.ref_name }} is on the 'build' branch. Proceeding with release."
+            echo "result={\"conclusion\":\"success\"}" >> $GITHUB_OUTPUT
+          else
+            echo "Tag ${{ github.ref_name }} is not on the 'build' branch. Skipping release."
+            echo "To release, create the tag on a commit in the 'build' branch."
+            echo "result={\"conclusion\":\"skipped\"}" >> $GITHUB_OUTPUT
           fi
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-firmware # This job runs after all builds are complete
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Version from Tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-release-assets
+
+      - name: Collate artifacts and create checksums
+        run: |
+          mkdir release-assets
+          find all-release-assets -type f -name "*.bin" -exec mv {} release-assets/ \;
+          ls -l release-assets
+          (cd release-assets && sha256sum *.bin > checksums.txt)
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # Generates release notes from commits between this tag and the previous one.
+          # For the very first tag, it lists all commits.
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | sed -n '2p' 2>/dev/null)
+          if [ -z "$PREVIOUS_TAG" ]; then
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"* %s (%h)" $PREVIOUS_TAG..${{ steps.get_version.outputs.VERSION }} >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.release-info.outputs.version }}
-          name: "Centauri Firmware v${{ steps.release-info.outputs.version }}"
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: "Centauri Firmware ${{ steps.get_version.outputs.VERSION }}"
           body: |
-            ## Firmware Release v${{ steps.release-info.outputs.version }}
+            ## Firmware Release ${{ steps.get_version.outputs.VERSION }}
 
-            ${{ steps.release-info.outputs.message }}
+            ### Changelog
+            ${{ steps.release_notes.outputs.CHANGELOG }}
 
             ### Included artifacts
-            - All supported boards (`esp32s3`, `esp32c3`, `esp32`, `seeed_esp32s3`, `seeed_esp32c3`)
+            - All supported boards
             - `checksums.txt` with SHA256 digests
-
-            🔧 Built with `tools/build_and_release.py`
           files: release-assets/*
           draft: false
-          prerelease: ${{ inputs.prerelease }}
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
