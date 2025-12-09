@@ -1,4 +1,6 @@
 (function () {
+    const MAX_BIN_SIZE_BYTES = 4 * 1024 * 1024; // 4MB per file ceiling
+
     class LiteOtaUploader {
         constructor(options = {}) {
             this.uploadArea = options.uploadArea;
@@ -43,7 +45,19 @@
                 this.toast('Upload already in progress. Please wait for it to finish.', 'warning');
                 return;
             }
-            const tasks = Array.from(fileList).map((file) => ({
+            const files = Array.from(fileList || []);
+            if (!files.length) {
+                this.toast('No files detected.', 'warning');
+                return;
+            }
+
+            const validationError = this.validateFiles(files);
+            if (validationError) {
+                this.toast(validationError, 'error');
+                return;
+            }
+
+            const tasks = files.map((file) => ({
                 file,
                 mode: this.inferMode(file)
             }));
@@ -61,6 +75,26 @@
                 return;
             }
             this.startQueue();
+        }
+
+        validateFiles(files) {
+            if (files.length > 2) {
+                return 'Upload up to two files (firmware and optional LittleFS).';
+            }
+
+            for (const file of files) {
+                const name = file.name.toLowerCase();
+                if (name.includes('merged')) {
+                    return 'Files containing "merged" are not allowed. Upload firmware and LittleFS images only.';
+                }
+
+                if (file.size > MAX_BIN_SIZE_BYTES) {
+                    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                    return `${file.name} is too large (${sizeMb} MB). Max size is 4 MB per file.`;
+                }
+            }
+
+            return null;
         }
 
         inferMode(file) {
