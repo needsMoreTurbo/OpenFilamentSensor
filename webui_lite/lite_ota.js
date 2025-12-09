@@ -147,7 +147,7 @@
                     : 'n/a';
                 const settle = this.lastVersionSettleMs ? (this.lastVersionSettleMs / 1000).toFixed(1) : '0';
                 const timingMsg = `Filesystem OTA starting: ${sinceFirmware}s after firmware, ${sinceFirstOk}s after first /version, settled ${settle}s.`;
-                this.toast(timingMsg, 'info');
+                // this.toast(timingMsg, 'info');
                 console.info(`[LiteOTA] ${timingMsg}`);
             }
 
