@@ -950,8 +950,8 @@
                 </div>
                 <nav>
                     <button class="nav-btn active" data-page="status">Status</button>
-                    <button class="nav-btn" data-page="debug">DEBUG</button>
-                    <button class="nav-btn" data-page="settings">⚙️ Settings</button>
+                    <button class="nav-btn" data-page="debug">Debug</button>
+                    <button class="nav-btn" data-page="settings">Settings ⚙️</button>
                     <button class="nav-btn" data-page="logs">Logs</button>
                     <button class="nav-btn" data-page="update">Update</button>
                     <button class="nav-btn" data-page="about">About</button>
@@ -1080,6 +1080,7 @@
             <div class="card">
                 <div class="card-header">
                     <span>Device Configuration</span>
+                    <span id="settingsDirtyIndicator" style="display: none; margin-left: auto; color: var(--warning); font-size: 0.9rem; font-weight: 600;">Unsaved changes</span>
                 </div>
                 <div id="settingsContent">
                     <div class="spinner-container">
@@ -1200,6 +1201,8 @@
     <script>
         // Global state
         let currentSettings = null;
+        let settingsBaseline = null;
+        let settingsDirty = false;
         let statusEventSource = null;
         let logsInterval = null;
         let metricsChart = null;
@@ -1301,6 +1304,15 @@
         });
 
         function switchPage(pageName) {
+            const activePage = document.querySelector('.page.active');
+            const leavingSettings = activePage && activePage.id === 'settings' && pageName !== 'settings';
+            if (leavingSettings && settingsDirty) {
+                const confirmLeave = confirm('You have unsaved settings changes. Leave without saving?');
+                if (!confirmLeave) {
+                    return;
+                }
+            }
+
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.page === pageName);
             });
@@ -1902,9 +1914,78 @@
             return statusMap[status] || 'Unknown';
         }
 
+        function buildSettingsPayload() {
+            const ssidEl = document.getElementById('ssid');
+            if (!ssidEl) return null;
+
+            return {
+                ssid: ssidEl.value,
+                passwd: document.getElementById('passwd').value,
+                ap_mode: false,
+                elegooip: document.getElementById('elegooip').value,
+                pause_on_runout: document.getElementById('pause_on_runout').checked,
+                start_print_timeout: parseInt(document.getElementById('start_print_timeout').value) * 1000,
+                enabled: document.getElementById('enabled').checked,
+                detection_grace_period_ms: parseInt(document.getElementById('detection_grace_period_ms').value),
+                detection_ratio_threshold: parseInt(document.getElementById('detection_ratio_threshold').value),
+                detection_hard_jam_mm: parseFloat(document.getElementById('detection_hard_jam_mm').value),
+                detection_soft_jam_time_ms: parseInt(document.getElementById('detection_soft_jam_time_ms').value) * 1000,
+                detection_hard_jam_time_ms: parseInt(document.getElementById('detection_hard_jam_time_ms').value) * 1000,
+                detection_mode: parseInt(document.getElementById('detection_mode').value),
+                sdcp_loss_behavior: parseInt(document.getElementById('sdcp_loss_behavior').value),
+                flow_telemetry_stale_ms: parseInt(document.getElementById('flow_telemetry_stale_ms').value),
+                ui_refresh_interval_ms: parseInt(document.getElementById('ui_refresh_interval_ms').value),
+                log_level: parseInt(document.getElementById('log_level').value),
+                suppress_pause_commands: document.getElementById('suppress_pause_commands').checked,
+                movement_mm_per_pulse: parseFloat(document.getElementById('movement_mm_per_pulse').value),
+                auto_calibrate_sensor: document.getElementById('auto_calibrate_sensor').checked,
+                pulse_reduction_percent: parseFloat(document.getElementById('pulse_reduction_percent').value)
+            };
+        }
+
+        function updateSettingsDirtyIndicator() {
+            const indicator = document.getElementById('settingsDirtyIndicator');
+            if (!indicator) return;
+            indicator.style.display = settingsDirty ? 'inline-flex' : 'none';
+        }
+
+        function setSettingsBaseline(payload) {
+            settingsBaseline = payload ? JSON.parse(JSON.stringify(payload)) : null;
+            settingsDirty = false;
+            updateSettingsDirtyIndicator();
+        }
+
+        function updateSettingsDirtyState() {
+            if (!settingsBaseline) {
+                settingsDirty = false;
+                updateSettingsDirtyIndicator();
+                return;
+            }
+            const payload = buildSettingsPayload();
+            if (!payload) return;
+            const dirtyNow = JSON.stringify(payload) !== JSON.stringify(settingsBaseline);
+            if (dirtyNow && !settingsDirty) {
+                settingsDirty = true;
+                updateSettingsDirtyIndicator();
+                showToast('You have unsaved settings changes.', 'warning');
+            } else if (!dirtyNow && settingsDirty) {
+                settingsDirty = false;
+                updateSettingsDirtyIndicator();
+            }
+        }
+
+        function attachSettingsChangeHandlers() {
+            const controls = document.querySelectorAll('#settingsContent input, #settingsContent select');
+            controls.forEach(control => {
+                control.addEventListener('input', updateSettingsDirtyState);
+                control.addEventListener('change', updateSettingsDirtyState);
+            });
+        }
+
         // Settings Page
         async function loadSettings() {
             const container = document.getElementById('settingsContent');
+            setSettingsBaseline(null);
 
             try {
                 const response = await fetch('/get_settings');
@@ -2062,6 +2143,9 @@
                         <button type="button" class="btn btn-secondary" onclick="testResume()">Send Resume Command</button>
                     </div>
                 `;
+
+                attachSettingsChangeHandlers();
+                setSettingsBaseline(buildSettingsPayload());
             } catch (error) {
                 showToast('Failed to load settings: ' + error.message, 'error');
                 container.innerHTML = '<p style="color: var(--error);">Failed to load settings. Please refresh.</p>';
@@ -2070,29 +2154,11 @@
 
         async function saveSettings() {
             try {
-                const settings = {
-                    ssid: document.getElementById('ssid').value,
-                    passwd: document.getElementById('passwd').value,
-                    ap_mode: false,
-                    elegooip: document.getElementById('elegooip').value,
-                    pause_on_runout: document.getElementById('pause_on_runout').checked,
-                    start_print_timeout: parseInt(document.getElementById('start_print_timeout').value) * 1000,
-                    enabled: document.getElementById('enabled').checked,
-                    detection_grace_period_ms: parseInt(document.getElementById('detection_grace_period_ms').value),
-                    detection_ratio_threshold: parseInt(document.getElementById('detection_ratio_threshold').value),
-                      detection_hard_jam_mm: parseFloat(document.getElementById('detection_hard_jam_mm').value),
-                      detection_soft_jam_time_ms: parseInt(document.getElementById('detection_soft_jam_time_ms').value) * 1000,
-                      detection_hard_jam_time_ms: parseInt(document.getElementById('detection_hard_jam_time_ms').value) * 1000,
-                      detection_mode: parseInt(document.getElementById('detection_mode').value),
-                      sdcp_loss_behavior: parseInt(document.getElementById('sdcp_loss_behavior').value),
-                    flow_telemetry_stale_ms: parseInt(document.getElementById('flow_telemetry_stale_ms').value),
-                    ui_refresh_interval_ms: parseInt(document.getElementById('ui_refresh_interval_ms').value),
-                    log_level: parseInt(document.getElementById('log_level').value),
-                    suppress_pause_commands: document.getElementById('suppress_pause_commands').checked,
-                    movement_mm_per_pulse: parseFloat(document.getElementById('movement_mm_per_pulse').value),
-                    auto_calibrate_sensor: document.getElementById('auto_calibrate_sensor').checked,
-                    pulse_reduction_percent: parseFloat(document.getElementById('pulse_reduction_percent').value),
-                };
+                const settings = buildSettingsPayload();
+                if (!settings) {
+                    showToast('Unable to read settings from the form.', 'error');
+                    return;
+                }
 
                 const response = await fetch('/update_settings', {
                     method: 'POST',
@@ -2103,6 +2169,7 @@
                 if (response.ok) {
                     showToast('Settings saved successfully!', 'success');
                     currentSettings = settings;
+                    setSettingsBaseline(settings);
                 } else {
                     throw new Error('Failed to save settings');
                 }
@@ -2586,7 +2653,11 @@
             setStatusHelpMessage('default');
         });
 
-        window.addEventListener('beforeunload', () => {
+        window.addEventListener('beforeunload', (event) => {
+            if (settingsDirty) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
             stopStatusStream();
             if (logsInterval) clearInterval(logsInterval);
         });
