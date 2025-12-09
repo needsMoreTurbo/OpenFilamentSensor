@@ -73,7 +73,7 @@ jobs:
           VERSION="dev-${{ github.run_number }}"
           mkdir -p data
           echo "$VERSION" > data/build_version.txt
-          echo "$(date +%m%d%y%H%M%S)" > data/build_timestamp.txt
+          date -u +%m%d%y%H%M%S > data/build_timestamp.txt
           echo "$VERSION" > data/.version
 
       - name: Build firmware + filesystem for esp32s3
