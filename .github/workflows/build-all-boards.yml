@@ -1,9 +1,7 @@
-name: Build & Release Firmware
+name: Build Firmware
 
 on:
   push:
-    tags:
-      - 'v*'           # build on version tags
     branches:
       - main
       - dev

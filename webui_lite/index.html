@@ -2439,6 +2439,24 @@
             });
         }
 
+        function normalizeBuildVersion(raw) {
+            if (raw === undefined || raw === null) {
+                return '0.0.0';
+            }
+
+            const cleaned = String(raw).trim();
+            const vIndex = cleaned.toLowerCase().indexOf('v');
+            const afterV = vIndex === -1 ? cleaned : cleaned.slice(vIndex + 1).trim();
+
+            const match = afterV.match(/(\d+\.\d+\.\d+)(.*)/);
+            if (match) {
+                return `${match[1]}${match[2]}`;
+            }
+
+            const stripped = afterV.replace(/^v+/i, '').trim();
+            return stripped || '0.0.0';
+        }
+
         // About Page
         async function loadAboutInfo() {
             try {
@@ -2448,7 +2466,7 @@
                 document.getElementById('firmwareVersion').textContent = data.firmware_version || 'Unknown';
                 document.getElementById('firmwareThumbprint').textContent = formatThumbprint(data.firmware_thumbprint);
                 document.getElementById('filesystemThumbprint').textContent = formatThumbprint(data.filesystem_thumbprint);
-                document.getElementById('buildVersion').textContent = 'v' + (data.build_version || '0.0.0');
+                document.getElementById('buildVersion').textContent = 'v' + normalizeBuildVersion(data.build_version);
                 document.getElementById('chipModel').textContent = data.chip_family || 'Unknown';
 
                 const statusResponse = await fetch('/sensor_status');
