@@ -51,6 +51,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v4
         with:
@@ -67,11 +69,42 @@ jobs:
         working-directory: webui_lite
         run: npm ci
 
+      - name: Determine firmware version
+        id: get_version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            RAW_REF="${GITHUB_REF#refs/tags/}"
+            TAG="$RAW_REF"
+          else
+            TAG=$(git tag --sort=-v:refname | head -n 1)
+          fi
+
+          if [ -z "$TAG" ]; then
+            VERSION="0.0.1-alpha"
+          else
+            VERSION="${TAG#v}"
+          fi
+
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Generate build timestamp
         id: timestamp
         run: echo "datetime=$(date -u +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
 
+      - name: Create version files
+        shell: bash
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          mkdir -p data
+          echo "$VERSION" > data/build_version.txt
+          echo "$(date +%m%d%y%H%M%S)" > data/build_timestamp.txt
+          echo "$VERSION" > data/.version
+
       - name: Build firmware + filesystem for ${{ matrix.env }}
+        env:
+          FIRMWARE_VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
           python tools/build_and_flash.py --env ${{ matrix.env }} --local --ignore-secrets
 
@@ -88,4 +121,3 @@ jobs:
         with:
           name: firmware-${{ matrix.env }}-${{ steps.timestamp.outputs.datetime }}
           path: artifacts/${{ matrix.env }}
-
