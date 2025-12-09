@@ -327,10 +327,12 @@ jobs:
         run: |
           PREVIOUS_TAG=$(git tag --sort=-v:refname | sed -n '2p' 2>/dev/null)
           if [ -z "$PREVIOUS_TAG" ]; then
-            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+            # Take only a single root commit if multiple exist
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD | tail -n 1)
           fi
+
           echo "CHANGELOG<<EOF" >> "$GITHUB_OUTPUT"
-          git log --pretty=format:"* %s (%h)" "$PREVIOUS_TAG"..${{ github.ref_name }} >> "$GITHUB_OUTPUT"
+          git log --pretty=format:"* %s (%h)" "$PREVIOUS_TAG"..main >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
