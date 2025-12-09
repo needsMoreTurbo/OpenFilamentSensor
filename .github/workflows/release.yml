@@ -324,8 +324,11 @@ jobs:
       - name: Stage firmware assets for GitHub Pages
         shell: bash
         run: |
-          TAG="${{ steps.get_version.outputs.TAG }}"
-          PAGES_DIR="pages-publish/releases/${TAG}"
+          RAW_TAG="${{ steps.get_version.outputs.TAG }}"
+          STRIPPED="$(echo "$RAW_TAG" | sed -E 's/^v+//I')"
+          NORMALIZED_TAG="v${STRIPPED}"
+          echo "Normalizing tag '$RAW_TAG' -> '$NORMALIZED_TAG' for Pages path"
+          PAGES_DIR="pages-publish/releases/${NORMALIZED_TAG}"
           mkdir -p "${PAGES_DIR}"
           cp -v release-assets/* "${PAGES_DIR}/"
 
