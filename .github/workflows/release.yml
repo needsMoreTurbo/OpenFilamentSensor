@@ -143,27 +143,27 @@ jobs:
         shell: bash
         run: |
           if [ -f "data/user_settings.json" ]; then
-            python - << 'PY'
-            import json
-            from pathlib import Path
-
-            path = Path("data/user_settings.json")
-            try:
-                raw = path.read_text(encoding="utf-8")
-                data = json.loads(raw or "{}")
-            except Exception:
-                data = {}
-
-            # Blank WiFi credentials and set a safe placeholder IP
-            if "ssid" in data:
-                data["ssid"] = ""
-            if "passwd" in data:
-                data["passwd"] = ""
-            if "elegooip" in data:
-                data["elegooip"] = "1.1.1.1"
-
-            path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-            PY
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          
+          path = Path("data/user_settings.json")
+          try:
+              raw = path.read_text(encoding="utf-8")
+              data = json.loads(raw or "{}")
+          except Exception:
+              data = {}
+          
+          # Blank WiFi credentials and set a safe placeholder IP
+          if "ssid" in data:
+              data["ssid"] = ""
+          if "passwd" in data:
+              data["passwd"] = ""
+          if "elegooip" in data:
+              data["elegooip"] = "1.1.1.1"
+          
+          path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          PY
           fi
 
       - name: Create version files
