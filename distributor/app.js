@@ -10,6 +10,7 @@ let selectors = {};
 const initSelectors = () => {
     selectors = {
         releaseSelect: document.getElementById('releaseSelect'),
+        releaseNotesLink: document.getElementById('releaseNotesLink'),
         boardSelect: document.getElementById('boardSelect'),
         boardStatus: document.getElementById('boardStatus'),
         notesList: document.getElementById('notesList'),
@@ -237,6 +238,16 @@ const renderActiveRelease = () => {
     const published = state.release?.publishedAt ? formatDate(state.release.publishedAt) : '—';
     if (selectors.heroDate) {
         selectors.heroDate.textContent = published;
+    }
+    if (selectors.releaseNotesLink) {
+        const href = state.release?.url || '';
+        const hasUrl = Boolean(href);
+        selectors.releaseNotesLink.href = hasUrl ? href : '#';
+        selectors.releaseNotesLink.classList.toggle('disabled', !hasUrl);
+        selectors.releaseNotesLink.setAttribute('aria-disabled', hasUrl ? 'false' : 'true');
+        selectors.releaseNotesLink.title = hasUrl
+            ? `Open ${state.release?.normalizedTag || state.release?.tag || 'release'} on GitHub`
+            : 'Release notes are unavailable for this selection.';
     }
 };
 
@@ -906,8 +917,9 @@ const downloadOtaFiles = async (board) => {
 
 const attachEvents = () => {
     if (selectors.releaseSelect) {
-        selectors.releaseSelect.addEventListener('change', (event) => {
+        selectors.releaseSelect.addEventListener('change', async (event) => {
             setActiveRelease(event.target.value);
+            await fetchVersioning();
         });
     }
 

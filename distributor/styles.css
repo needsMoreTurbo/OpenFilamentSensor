@@ -194,6 +194,38 @@ main {
     padding-top: 8px;
 }
 
+.release-link-block {
+    display: flex;
+    justify-content: flex-end;
+    align-self: flex-end;
+}
+
+.release-notes-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 600;
+    width: fit-content;
+    border: 1px solid var(--border-color);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.release-notes-link:hover {
+    background: rgba(255, 255, 255, 0.14);
+    transform: translateY(-1px);
+}
+
+.release-notes-link.disabled {
+    opacity: 0.55;
+    pointer-events: none;
+    transform: none;
+}
+
 .metric-label {
     text-transform: uppercase;
     letter-spacing: 0.18em;
