@@ -425,6 +425,29 @@ const applyVersioningToBoard = (board) => {
     return buildBoardModel(board, state.release);
 };
 
+/**
+ * Parse basic markdown to HTML for release notes display
+ * Handles: headings, bold, inline code, links
+ */
+const parseMarkdownToHtml = (text) => {
+    if (!text) return '';
+    return text
+        // Escape HTML entities first
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Headings (### before ## before #)
+        .replace(/^### (.+)$/gm, '<strong>$1</strong>')
+        .replace(/^## (.+)$/gm, '<strong>$1</strong>')
+        .replace(/^# (.+)$/gm, '<strong>$1</strong>')
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+};
+
 const renderNotes = (target, notes = [], emptyText = 'No release notes provided for this build.') => {
     if (!target) return;
     target.innerHTML = '';
@@ -437,7 +460,7 @@ const renderNotes = (target, notes = [], emptyText = 'No release notes provided 
     }
     notes.forEach((note) => {
         const li = document.createElement('li');
-        li.textContent = note;
+        li.innerHTML = parseMarkdownToHtml(note);
         target.appendChild(li);
     });
 };
