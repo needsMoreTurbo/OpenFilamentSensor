@@ -148,6 +148,7 @@ const normalizeRelease = (release, index = 0) => {
         publishedAt: release.published_at,
         url: release.html_url,
         assetMap: buildAssetMap(release.assets || []),
+        body: typeof release.body === 'string' ? release.body : '',
         isPrerelease: !!release.prerelease,
         isDraft: !!release.draft,
         isCurrent: !release.draft && index === 0

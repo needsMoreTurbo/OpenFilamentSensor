@@ -251,7 +251,8 @@ function testManifestVersionConsistency() {
     const boardsJsonPath = path.join(__dirname, '..', 'distributor', 'boards.json');
     if (fs.existsSync(boardsJsonPath)) {
         const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
-        const boards = boardsData.boards || [];
+        const rawBoards = boardsData.boards || [];
+        const boards = Array.isArray(rawBoards) ? rawBoards : Object.values(rawBoards || {});
         const versions = boards.map(b => b.version).filter(Boolean);
         const uniqueVersions = [...new Set(versions)];
         if (uniqueVersions.length > 1) {
@@ -268,7 +269,8 @@ function testBoardChipFamilyValidation() {
     
     if (fs.existsSync(boardsJsonPath)) {
         const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
-        const boards = boardsData.boards || [];
+        const rawBoards = boardsData.boards || [];
+        const boards = Array.isArray(rawBoards) ? rawBoards : Object.values(rawBoards || {});
         
         const validChipFamilies = [
             'ESP32', 'ESP32-S2', 'ESP32-S3', 'ESP32-C3', 'ESP32-C6', 'ESP32-H2'
@@ -303,34 +305,6 @@ function testFirmwareBinariesExist() {
     
     if (fs.existsSync(boardsJsonPath)) {
         console.log(`${COLOR_YELLOW}SKIP: Local firmware binaries not required; served from Pages.${COLOR_RESET}`);
-    }
-}
- {
-    const boardsJsonPath = path.join(__dirname, '..', 'distributor', 'boards.json');
-    
-    if (fs.existsSync(boardsJsonPath)) {
-        const boardsData = JSON.parse(fs.readFileSync(boardsJsonPath, 'utf8'));
-        const boards = boardsData.boards || [];
-        
-        boards.forEach(board => {
-            if (board.files && Array.isArray(board.files)) {
-                board.files.forEach(filePath => {
-                    const fullPath = path.join(__dirname, '..', 'distributor', filePath);
-                    // Binary files might not be in git, so we just check structure
-                    // In a real environment, these should exist
-                    if (fs.existsSync(fullPath)) {
-                        const stats = fs.statSync(fullPath);
-                        assert(stats.size > 0, 
-                               `Firmware binary ${filePath} should not be empty`);
-                    } else {
-                        console.log(`${COLOR_YELLOW}NOTE: Firmware binary ${filePath} not found (may be gitignored)${COLOR_RESET}`);
-                    }
-                });
-            }
-        });
-        
-        console.log(`${COLOR_GREEN}PASS: Firmware binary structure validated${COLOR_RESET}`);
-        testsPassed++;
     }
 }
 

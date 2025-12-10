@@ -4,6 +4,7 @@ const PLACEHOLDER_TOKENS = [PLACEHOLDER_TOKEN];
 const DEFAULT_STATUS_MESSAGE =
     '\n\nsee Github for implementation';
 const MAX_FIELD_LENGTH = 32;
+const MAX_FIELD_MESSAGE = `SSID/password must be ${MAX_FIELD_LENGTH} characters or fewer.`;
 const isoDecoder = new TextDecoder('iso-8859-1');
 
 const toIsoBytes = (value) => {
@@ -251,7 +252,7 @@ export function initWifiPatcher({ installButton, openButton, resetButton, dialog
             return;
         }
         if (ssid.length > MAX_FIELD_LENGTH || passwd.length > MAX_FIELD_LENGTH) {
-            setStatus('SSID/password must be 20 characters or fewer.');
+            setStatus(MAX_FIELD_MESSAGE);
             return;
         }
         if (patching) {
