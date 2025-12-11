@@ -205,6 +205,7 @@ class ElegooCC
     };
     CachedSettings cachedSettings;
     JamConfig cachedJamConfig;
+    portMUX_TYPE cacheLock;
 
     // Command tracking
     unsigned long lastPauseRequestMs;
@@ -266,6 +267,8 @@ class ElegooCC
 
     void setup();
     void loop();
+
+    void refreshCaches();
 
     // Get current printer information
     printer_info_t getCurrentInformation();

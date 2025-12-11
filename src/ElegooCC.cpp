@@ -136,6 +136,7 @@ ElegooCC::ElegooCC()
     lastPauseRequestMs = 0;
     lastPrintEndMs     = 0;
     lastJamDetectorUpdateMs = 0;
+    cacheLock = portMUX_INITIALIZER_UNLOCKED;
 
     // TODO: send a UDP broadcast, M99999 on Port 30000, maybe using AsyncUDP.h and listen for the
     // result. this will give us the printer IP address.
@@ -148,8 +149,7 @@ ElegooCC::ElegooCC()
 void ElegooCC::setup()
 {
     // Initialize settings and config caches
-    refreshSettingsCache();
-    refreshJamConfig();
+    refreshCaches();
 
     bool shouldConect = !settingsManager.isAPMode();
     if (shouldConect)
@@ -425,6 +425,7 @@ void ElegooCC::handleStatus(JsonDocument &doc)
                                     // Only needs to run once to determine the correct value
                                     settingsManager.setAutoCalibrateSensor(false);
                                     settingsManager.save();
+                                    refreshCaches();
 
                                     logger.logf(
                                         "Auto-calibration: Updated mm_per_pulse from %.3f to %.3f "
@@ -701,6 +702,15 @@ void ElegooCC::sendCommand(int command, bool waitForAck)
     }
 }
 
+void ElegooCC::refreshCaches()
+{
+    // Use a short critical section so cache refreshes invoked from other tasks stay consistent
+    portENTER_CRITICAL(&cacheLock);
+    refreshSettingsCache();
+    refreshJamConfig();
+    portEXIT_CRITICAL(&cacheLock);
+}
+
 void ElegooCC::refreshSettingsCache()
 {
     // Cache frequently-read settings from hot path to avoid repeated function calls
@@ -717,7 +727,7 @@ void ElegooCC::refreshJamConfig()
 {
     // Cache jam detection config instead of rebuilding every 250ms with 7 settings reads
     // This reduces getter calls and validation checks in the jam detection hot path
-    cachedJamConfig = buildJamConfigFromSettings(settingsManager);
+    cachedJamConfig = buildJamConfigFromSettings();
 }
 
 void ElegooCC::clearPrintStartCandidate()

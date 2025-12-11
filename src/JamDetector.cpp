@@ -357,7 +357,7 @@ JamState JamDetector::update(float         expectedDistance,
     float expectedRate = 0.0f;
     float actualRate   = 0.0f;
 
-    if constexpr (!USE_WINDOWED_RATE_SAMPLES)
+    if (!USE_WINDOWED_RATE_SAMPLES)
     {
         // First derivative: compute rates from windowed distances
         float dtSec = static_cast<float>(elapsedMs) / 1000.0f;
