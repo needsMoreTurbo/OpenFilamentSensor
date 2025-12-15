@@ -271,7 +271,7 @@ class ElegooCC
     static ElegooCC &getInstance();
 
     // Interrupt handler for pulse detection (static, attached to GPIO interrupt)
-    static void pulseCounterISR();
+    static void IRAM_ATTR pulseCounterISR();
 
     void setup();
     void loop();

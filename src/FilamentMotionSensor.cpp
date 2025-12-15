@@ -212,20 +212,47 @@ void FilamentMotionSensor::getWindowedRates(float &expectedRate, float &actualRa
     // We divide by WINDOW_SIZE_MS if full?
     // Better: We track how much time is actually covered by the valid buckets.
     
-    unsigned long now = millis();
-    unsigned long cutoff = now - WINDOW_SIZE_MS;
-    unsigned long validDuration = 0;
+        static const unsigned long MIN_VALID_DURATION_MS = 250;
     
-    for (int i = 0; i < BUCKET_COUNT; i++)
-    {
-        if (bucketTimestamps[i] >= cutoff && bucketTimestamps[i] <= now)
-        {
-            validDuration += BUCKET_SIZE_MS;
+        unsigned long now = millis();
+    
+        unsigned long cutoff;
+    
+        if (now < WINDOW_SIZE_MS) {
+    
+            cutoff = 0; // Prevent unsigned long underflow
+    
+        } else {
+    
+            cutoff = now - WINDOW_SIZE_MS;
+    
         }
-    }
     
-    // If we have very little data (e.g. just started), prevent division by zero
-    if (validDuration < 250) validDuration = 250; 
+    
+    
+        unsigned long validDuration = 0;
+    
+        
+    
+        for (int i = 0; i < BUCKET_COUNT; i++)
+    
+        {
+    
+            if (bucketTimestamps[i] >= cutoff && bucketTimestamps[i] <= now)
+    
+            {
+    
+                validDuration += BUCKET_SIZE_MS;
+    
+            }
+    
+        }
+    
+        
+    
+        // If we have very little data (e.g. just started), prevent division by zero
+    
+        if (validDuration < MIN_VALID_DURATION_MS) validDuration = MIN_VALID_DURATION_MS;  
     
     float durationSec = validDuration / 1000.0f;
     expectedRate = expSum / durationSec;

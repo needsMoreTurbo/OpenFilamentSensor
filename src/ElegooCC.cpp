@@ -1528,7 +1528,7 @@ bool ElegooCC::discoverPrinterIP(String &outIp, unsigned long timeoutMs)
 // Called by GPIO interrupt on MOVEMENT_SENSOR_PIN rising edge.
 // Execution time: ~2-3 microseconds (very fast, safe for ISR).
 // ============================================================================
-void ElegooCC::pulseCounterISR()
+void IRAM_ATTR ElegooCC::pulseCounterISR()
 {
     // Get singleton instance and increment the ISR counter
     // The main loop will read this counter periodically
