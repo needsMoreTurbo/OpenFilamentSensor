@@ -41,7 +41,6 @@ test/nul
 /test/test_settings_manager
 /test/test_logger
 /test/test_integration
-/test/generated_test_settings.h
 
 # Logs
 logs
