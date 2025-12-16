@@ -139,7 +139,6 @@ ElegooCC::ElegooCC()
     printCandidateSawLeveling     = false;
     printCandidateConditionsMet   = false;
     printCandidateIdleSinceMs     = 0;
-    printCandidateIdleSinceMs     = 0;
     trackingFrozen                = false;
     hasBeenPaused                 = false;
     motionSensor.reset();
@@ -514,17 +513,21 @@ void ElegooCC::handleStatus(JsonDocument &doc)
             String newTaskId = printInfo["TaskId"].as<String>();
             if (!newTaskId.isEmpty())
             {
-                // Detect job transitions based on TaskId changes
+                // Detect job start based on TaskId appearing
+                // We only use this for START detection, not resume or end.
                 if (lastTaskId.isEmpty())
                 {
-                    logger.logf("[JobID] NEW PRINT STARTED: TaskId='%s'", newTaskId.c_str());
+                    // TaskId appeared from nothing -> New Print Job
+                    // Force the candidate logic to accept the next PRINTING state as a new start
+                    printCandidateActive        = true;
+                    printCandidateConditionsMet = true;
+                    printCandidateIdleSinceMs   = 0;
+
+                    if (settingsManager.getVerboseLogging())
+                    {
+                        logger.logf("New Print detected via TaskId: %s", newTaskId.c_str());
+                    }
                 }
-                else if (newTaskId != lastTaskId)
-                {
-                    logger.logf("[JobID] PRINT JOB CHANGED: '%s' -> '%s'",
-                                lastTaskId.c_str(), newTaskId.c_str());
-                }
-                // Same TaskId = would be a RESUME (no log needed here)
 
                 lastTaskId = newTaskId;
                 taskId = newTaskId;
@@ -532,8 +535,7 @@ void ElegooCC::handleStatus(JsonDocument &doc)
         }
         else if (!lastTaskId.isEmpty())
         {
-            // TaskId disappeared - job ended
-            logger.logf("[JobID] PRINT ENDED: TaskId='%s' no longer present", lastTaskId.c_str());
+            // TaskId disappeared - logic explicitly ignores this for print end
             lastTaskId = "";
             taskId = "";
         }
@@ -549,12 +551,7 @@ void ElegooCC::handleStatus(JsonDocument &doc)
         }
         // No else - retain existing filename if field is missing
 
-        // Verbose logging for TaskId behavior observation
-        if (settingsManager.getVerboseLogging())
-        {
-            logger.logf("SDCP TaskId='%s' Filename='%s' Status=%d",
-                        taskId.c_str(), filename.c_str(), (int)newStatus);
-        }
+        // Verbose logging for TaskId behavior observation removed as requested
 
         // Update extrusion tracking (expected/actual/deficit) based on any
         // TotalExtrusion / CurrentExtrusion fields present in this payload.
@@ -834,7 +831,7 @@ void ElegooCC::updatePrintStartCandidate(sdcp_print_status_t previousStatus,
             if (printCandidateIdleSinceMs == 0)
             {
                 printCandidateIdleSinceMs = millis();
-                if (settingsManager.getVerboseLogging())
+                if (settingsManager.getVerboseLogging() && taskId.isEmpty())
                 {
                     logger.log("Print start candidate entered IDLE state");
                 }
@@ -842,7 +839,7 @@ void ElegooCC::updatePrintStartCandidate(sdcp_print_status_t previousStatus,
         }
         else
         {
-            if (printCandidateActive && settingsManager.getVerboseLogging())
+            if (printCandidateActive && settingsManager.getVerboseLogging() && taskId.isEmpty())
             {
                 logger.logf("Print start candidate cleared due to rest status %d",
                             (int) newStatus);
@@ -875,7 +872,7 @@ void ElegooCC::updatePrintStartCandidate(sdcp_print_status_t previousStatus,
         if (nowConditionsMet && !printCandidateConditionsMet)
         {
             printCandidateConditionsMet = true;
-            if (settingsManager.getVerboseLogging())
+            if (settingsManager.getVerboseLogging() && taskId.isEmpty())
             {
                 logger.log("Print start candidate conditions met (homing + leveling observed)");
             }
@@ -911,7 +908,7 @@ void ElegooCC::updatePrintStartCandidate(sdcp_print_status_t previousStatus,
     printCandidateConditionsMet = printCandidateSawHoming && printCandidateSawLeveling;
     printCandidateIdleSinceMs   = 0;
 
-    if (settingsManager.getVerboseLogging())
+    if (settingsManager.getVerboseLogging() && taskId.isEmpty())
     {
         logger.logf("Print start candidate found (prev=%d new=%d)",
                     (int) previousStatus, (int) newStatus);
@@ -939,7 +936,7 @@ void ElegooCC::updatePrintStartCandidateTimeout(unsigned long currentTime)
     unsigned long elapsed = currentTime - printCandidateIdleSinceMs;
     if (elapsed > 5000)
     {
-        if (settingsManager.getVerboseLogging())
+        if (settingsManager.getVerboseLogging() && taskId.isEmpty())
         {
             logger.logf("Print start candidate cleared after %lus of IDLE",
                         elapsed / 1000UL);
