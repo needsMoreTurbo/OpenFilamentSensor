@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-#  Centauri Carbon Motion Detector - Test Suite Runner
+#  OpenFilamentSensor - Test Suite Runner
 # =============================================================================
 #
 # Usage:

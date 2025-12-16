@@ -1,4 +1,4 @@
-# Testing Overview - Centauri Carbon Motion Detector
+# Testing Overview - OpenFilamentSensor
 
 ## Quick Start
 

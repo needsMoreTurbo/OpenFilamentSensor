@@ -1,6 +1,6 @@
 # Test Suite Documentation
 
-This directory contains comprehensive unit tests for the Centauri Carbon Motion Detector project.
+This directory contains comprehensive unit tests for the OpenFilamentSensor project.
 
 ## Test Structure
 

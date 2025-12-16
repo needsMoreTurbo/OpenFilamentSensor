@@ -1,6 +1,6 @@
 <# 
     tools-launcher.ps1
-    TUI-style menu for running Centauri motion-detector tools.
+    TUI-style menu for running OpenFilamentSensor tools.
 
     Base dir: script location (PSScriptRoot)
 #>
@@ -656,7 +656,7 @@ function Show-MainMenu {
     while ($true) {
         Clear-Host
         Write-Host "======================================="
-        Write-Host "  Centauri Motion Detector Tools Menu"
+        Write-Host "     OpenFilamentSensor Tools Menu     "
         Write-Host "======================================="
         Write-Host ""
         Write-Host (" Base dir: {0}" -f $BaseDir)

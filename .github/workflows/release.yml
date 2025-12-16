@@ -3,11 +3,11 @@ name: Release Firmware
 on:
   push:
     tags:
-      - 'v*'
+      - 'zzv*'
   pull_request:
     branches:
-      - build
-      - main
+      - zzbuild
+      - zzmain
   workflow_dispatch:
     inputs:
       version_override:
@@ -363,7 +363,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.TAG }}
-          name: "Centauri Firmware ${{ steps.get_version.outputs.VERSION }}"
+          name: "OpenFilamentSensor Firmware ${{ steps.get_version.outputs.VERSION }}"
           body: |
             ## Firmware Release ${{ steps.get_version.outputs.VERSION }}
 

@@ -382,7 +382,7 @@ async function testRemoteAssetsAccessible() {
     let failures = 0;
 
     for (const board of boards) {
-        const base = `https://harpua555.github.io/centauri-carbon-motion-detector/releases/${tag}/${board.id}`;
+        const base = `https://harpua555.github.io/OpenFilamentSensor/releases/${tag}/${board.id}`;
         const urls = [
             `${base}-firmware_merged.bin`,
             `${base}-firmware.bin`,

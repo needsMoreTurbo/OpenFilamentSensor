@@ -148,10 +148,10 @@ void SystemServices::startAPMode()
     stationConnected = false;
     logger.log("Starting AP mode");
     WiFi.mode(WIFI_AP);
-    WiFi.softAP("CentauriFilament.local");
+    WiFi.softAP("OFS.local");
     logger.logf("AP IP Address: %s", WiFi.softAPIP().toString().c_str());
 
-    if (!MDNS.begin("centaurifilament"))
+    if (!MDNS.begin("OFS"))
     {
         logger.log("Error setting up MDNS responder in AP mode!");
     }

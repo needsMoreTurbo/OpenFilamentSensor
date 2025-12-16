@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shared board configuration module for Centauri Carbon Motion Detector.
+Shared board configuration module for OpenFilamentSensor.
 Single source of truth for board-to-chip-family mappings and related functions.
 """
 

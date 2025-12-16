@@ -1,9 +1,9 @@
 # Distributor
 
-This static site flashes Centauri firmware via WebSerial and packages OTA downloads. It now pulls binaries directly from GitHub Releases instead of cloning the `build` branch.
+This static site flashes OpenFilamentSensor firmware via WebSerial and packages OTA downloads. It now pulls binaries directly from GitHub Releases instead of cloning the `build` branch.
 
 ## How it works
-- On load, it fetches the latest GitHub Releases list for `harpua555/centauri-carbon-motion-detector` and populates a release selector (or a specific tag via `?tag=vX.Y.Z`).
+- On load, it fetches the latest GitHub Releases list for `harpua555/OpenFilamentSensor` and populates a release selector (or a specific tag via `?tag=vX.Y.Z`).
 - The dropdown marks the current/latest release; picking another release rebuilds the board list using only the boards with assets on GitHub Pages for that release (no local fallbacks).
 - It maps release assets named `<env>-firmware_merged.bin`, `<env>-firmware.bin`, `<env>-littlefs.bin`, `<env>-bootloader.bin`, `<env>-partitions.bin` served from GitHub Pages to the boards defined in `boards.json`.
 - A per-board manifest is generated in the browser pointing to the release URLs (used by WebSerial flashing).

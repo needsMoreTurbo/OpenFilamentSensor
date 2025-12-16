@@ -2,7 +2,7 @@
   "boards": [
     {
       "id": "esp32s3",
-      "name": "Centauri Carbon Motion Detector",
+      "name": "OpenFilamentSensor",
       "variant": "ESP32-S3 (Generic)",
       "chipFamily": "ESP32-S3",
       "status": "stable",
@@ -19,7 +19,7 @@
     },
     {
       "id": "esp32c3",
-      "name": "Centauri Carbon Motion Detector",
+      "name": "OpenFilamentSensor",
       "variant": "ESP32-C3",
       "chipFamily": "ESP32-C3",
       "status": "beta",
@@ -36,7 +36,7 @@
     },
     {
       "id": "esp32c3supermini",
-      "name": "Centauri Carbon Motion Detector",
+      "name": "OpenFilamentSensor",
       "variant": "ESP32-C3 Supermini",
       "chipFamily": "ESP32-C3",
       "status": "beta",
@@ -53,7 +53,7 @@
     },
     {
       "id": "esp32",
-      "name": "Centauri Carbon Motion Detector",
+      "name": "OpenFilamentSensor",
       "variant": "ESP32 (WROOM)",
       "chipFamily": "ESP32",
       "status": "stable",
@@ -70,7 +70,7 @@
     },
     {
       "id": "seeed_esp32s3",
-      "name": "Centauri Carbon Motion Detector",
+      "name": "OpenFilamentSensor",
       "variant": "Seeed XIAO ESP32-S3",
       "chipFamily": "ESP32-S3",
       "status": "beta",
@@ -87,7 +87,7 @@
     },
     {
       "id": "seeed_esp32c3",
-      "name": "Centauri Carbon Motion Detector",
+      "name": "OpenFilamentSensor",
       "variant": "Seeed XIAO ESP32-C3",
       "chipFamily": "ESP32-C3",
       "status": "experimental",

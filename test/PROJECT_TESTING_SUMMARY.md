@@ -231,7 +231,9 @@ The test suite is production-ready and can be integrated into CI/CD pipelines im
 ---
 
 **Generated**: 2024-12-05  
-**Repository**: https://github.com/harpua555/centauri-carbon-motion-detector.git  
+# Project Testing Summary - OpenFilamentSensor
+
+**Repository**: https://github.com/harpua555/OpenFilamentSensor.git  
 **Branch**: Current (compared to main)  
 **Total Test Files**: 7  
 **Total Test Cases**: 40+  

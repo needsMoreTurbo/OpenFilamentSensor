@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 tools-launcher.py
-Cross-platform TUI-style menu for running Centauri motion-detector tools.
+Cross-platform TUI-style menu for running OpenFilamentSensor tools.
 Works on Windows, Linux, and WSL.
 """
 
@@ -561,7 +561,7 @@ def show_elegoo_status_menu():
     while True:
         clear_screen()
         print("===============================")
-        print("  Elegoo Status CLI")
+        print("       Elegoo Status CLI       ")
         print("===============================")
         print()
         print(f" [1] IP Address    : {Settings.elegoo_ip}")
@@ -719,7 +719,7 @@ def show_main_menu():
     while True:
         clear_screen()
         print("=======================================")
-        print("  Centauri Motion Detector Tools Menu")
+        print("     OpenFilamentSensor Tools Menu     ")
         print("=======================================")
         print()
         platform_info = "Windows" if IS_WINDOWS else ("WSL" if IS_WSL else "Linux")

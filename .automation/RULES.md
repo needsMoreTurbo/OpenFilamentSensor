@@ -1,4 +1,4 @@
-# AI Agent Rules & Guidelines for Centauri Carbon Motion Detector
+# AI Agent Rules & Guidelines for OpenFilamentSensor
 
 ## 0. Core Rules for AI Agents
 1.  **Build Process:** Never compile using any method other than `python tools/build_and_flash.py --local` unless specifically needed and approved.

@@ -1,5 +1,4 @@
-# BigTreeTech Filament Motion Sensor with OpenCentauri Filament Reporting
-
+# OpenFilamentSensor
 This project uses a BigTreeTech filament motion sensor and an ESP32, in addition to patched OpenCentauri firmware, to provide Klipper-like detection. The firmware uses SDCP telemetry from the printer to determine expected filament flow conditions, compares it to the physical pulse sensor, and pauses the printer when hard jams or severe under‑extrusion (soft jams elsewhere in documentation) are detected. An HTML dashboard served by the ESP32 provides status, configuration, and OTA updates.
 
 ## Highlights
@@ -179,7 +178,7 @@ The pulse simulator exercises hard/soft jam logic, sparse infill, retractions, r
 
 ```bash
 # From repo root
-wsl bash -lc "cd /mnt/c/Users/<you>/Documents/GitHub/cc_sfs/test && bash build_tests.sh"
+wsl bash -lc "cd /mnt/c/Users/<you>/Documents/GitHub/OpenFilamentSensor/test && bash build_tests.sh"
 ```
 
 All 20 tests must pass before releasing firmware (the build script does not run them automatically).

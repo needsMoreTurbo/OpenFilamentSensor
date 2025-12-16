@@ -247,7 +247,7 @@ def check_esp32_toolchain(pio_cmd):
 
 def main():
     """Run all environment checks"""
-    print(f"{Colors.BOLD}Centauri Carbon Motion Detector - Environment Checker{Colors.RESET}")
+    print(f"{Colors.BOLD}OpenFilamentSensor - Environment Checker{Colors.RESET}")
     print("Verifying build dependencies...")
 
     all_ok = True

@@ -2,7 +2,8 @@ import { initWifiPatcher, PLACEHOLDER_TOKEN } from './wifiPatcher.js';
 import { EspFlasher, FLASH_STATES } from './flasher.js';
 
 const GITHUB_OWNER = 'harpua555';
-const GITHUB_REPO = 'centauri-carbon-motion-detector';
+const GITHUB_REPO = 'OpenFilamentSensor';
+const GITHUB_PAGES_BASE = `https://${GITHUB_OWNER}.github.io/${GITHUB_REPO}/releases`;
 const DEFAULT_RELEASE_TAG = null; // Use "latest" unless a tag is provided via query string
 
 let selectors = {};
@@ -260,7 +261,7 @@ const buildBoardModel = (board, releaseInfo) => {
     const status = releaseInfo?.isPrerelease ? 'pre-release' : board.status;
 
     const pagesBase = normalizedTag
-        ? `https://harpua555.github.io/centauri-carbon-motion-detector/releases/${normalizedTag}/`
+        ? `${GITHUB_PAGES_BASE}/${normalizedTag}/`
         : '';
     const pageAsset = (suffix) => (pagesBase ? `${pagesBase}${board.id}-${suffix}` : '');
 
@@ -819,7 +820,7 @@ const downloadOtaFiles = async (board) => {
                 name: 'OTA_readme.md', generator: () => {
                     const tag = board.releaseTag || board.version || 'unknown';
                     const published = board.released ? formatDate(board.released) : 'unknown date';
-                    const content = `Centauri Carbon Motion Detector OTA\nBoard: ${board.variant || boardId}\nRelease: ${tag}\nPublished: ${published}\nSource: GitHub Releases (${GITHUB_OWNER}/${GITHUB_REPO})\n\nIncludes firmware.bin and littlefs.bin from the selected release.`;
+                    const content = `OpenFilamentSensor OTA\nBoard: ${board.variant || boardId}\nRelease: ${tag}\nPublished: ${published}\nSource: GitHub Releases (${GITHUB_OWNER}/${GITHUB_REPO})\n\nIncludes firmware.bin and littlefs.bin from the selected release.`;
                     return new Blob([content], { type: 'text/markdown' });
                 }
             }
