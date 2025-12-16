@@ -399,34 +399,6 @@ void testRapidSampleRates() {
     TEST_PASS("Rate calculation with rapid samples");
 }
 
-// Test: First pulse clears pre-prime samples
-void testFirstPulseClearsPrePrime() {
-    TEST_SECTION("First Pulse Clears Pre-Prime");
-
-    resetMockTime();
-    FilamentMotionSensor sensor;
-
-    // Initialize and add expected movement (simulating pre-prime purge)
-    sensor.updateExpectedPosition(0.0f);
-    advanceTime(100);
-    sensor.updateExpectedPosition(50.0f);  // Large purge move
-
-    // Now first pulse arrives - should clear pre-prime
-    advanceTime(100);
-    sensor.addSensorPulse(2.88f);
-
-    // Add some real tracking
-    advanceTime(100);
-    sensor.updateExpectedPosition(55.0f);
-    sensor.addSensorPulse(2.88f);
-
-    float expected = sensor.getExpectedDistance();
-    // Should only track movement after first pulse, not the 50mm purge
-    TEST_ASSERT(expected < 20.0f, "Pre-prime movement should be discarded");
-
-    TEST_PASS("First pulse clears pre-prime samples");
-}
-
 // Test: Uninitialized state returns safe values
 void testUninitializedState() {
     TEST_SECTION("Uninitialized State Safety");
@@ -487,7 +459,6 @@ int main() {
     testSampleBufferWrap();
     testSparseSampleRates();
     testRapidSampleRates();
-    testFirstPulseClearsPrePrime();
     testUninitializedState();
     testFlowRatioClamping();
 

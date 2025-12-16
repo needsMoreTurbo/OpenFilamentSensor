@@ -4,7 +4,7 @@
   "elegooip": "1.1.1.1",
   "ap_mode": false,
   "has_connected": false,
-  "movement_mm_per_pulse": 3.015,
+  "movement_mm_per_pulse": 3.055,
   "detection_grace_period_ms": 10000,
   "detection_min_start_mm": 12,
   "purge_filament_mm": 47,
