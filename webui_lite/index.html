@@ -510,6 +510,14 @@
             background: var(--bg-primary);
         }
 
+        .status-badge.error {
+            background: linear-gradient(135deg, var(--error), #d23a31);
+        }
+
+        .status-badge.error::before {
+            background: #fff;
+        }
+
         .chart-container {
             position: relative;
             height: 300px;
@@ -1262,7 +1270,7 @@
 
                 <h3 style="color: var(--accent-primary); margin-bottom: 16px;">Firmware</h3>
                 <div class="info-row">
-                    <span class="info-label">Version</span>
+                    <span class="info-label">Project Status</span>
                     <span class="info-value" id="firmwareVersion">Loading...</span>
                 </div>
                 <div class="info-row">
@@ -1274,7 +1282,7 @@
                     <span class="info-value" id="filesystemThumbprint" style="font-family: 'Consolas', monospace;">Loading...</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Build</span>
+                    <span class="info-label">Version</span>
                     <span class="info-value" id="buildVersion" style="font-family: 'Consolas', monospace;">Loading...</span>
                 </div>
 
@@ -2003,7 +2011,7 @@
                     <div class="status-item" data-help-key="printerConnected">
                         <div class="status-label">Printer Connected</div>
                         <div class="status-value">
-                            <span class="status-badge ${printerConnected ? 'active' : 'inactive'} no-pulse">
+                            <span class="status-badge ${printerConnected ? 'active' : 'warning'} no-pulse">
                                 ${printerConnected ? 'Connected' : 'Disconnected'}
                             </span>
                         </div>
