@@ -40,6 +40,7 @@ int FilamentMotionSensor::getCurrentBucketIndex()
     // Simpler check: If timestamp is older than WINDOW_SIZE, it is definitely garbage.
     // But since we wrap around, we must clear it *before* writing if it's from the last lap.
     
+    
     // We clear aggressively: If the bucket's timestamp doesn't match the current 
     // calculated window-slot time, it is stale.
     // Actually, simple ring buffer logic:
