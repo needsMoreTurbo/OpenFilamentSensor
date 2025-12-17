@@ -547,7 +547,7 @@
             overflow: hidden;
         }
 
-        .chart-card-content.hidden {
+        .chart-card-content.collapsed {
             max-height: 0;
             opacity: 0;
             margin-top: 0;
@@ -1455,7 +1455,18 @@
 
             const contentEl = document.getElementById(contentMap[chartKey]);
             if (contentEl) {
-                contentEl.classList.toggle('hidden', !visible);
+                contentEl.classList.toggle('collapsed', !visible);
+            }
+
+            // Initialize chart when toggling to visible
+            if (visible && isStatusPageActive()) {
+                if (chartKey === 'metricsChart' && !metricsChart) {
+                    initChart();
+                } else if (chartKey === 'fullPrintChart' && !fullPrintChart) {
+                    initFullPrintChart();
+                } else if (chartKey === 'jamCharts' && (!hardJamHistoryChart || !softJamHistoryChart)) {
+                    initJamCharts();
+                }
             }
         }
 
