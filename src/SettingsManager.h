@@ -31,6 +31,7 @@ struct user_settings
     float  pulse_reduction_percent;  // Pulse reduction for testing (0-100, default 100)
     float  purge_filament_mm;
     bool   test_recording_mode;    // Enable CSV test data recording to ./condensed directory
+    bool   show_debug_page;        // Show Debug page in web UI (default false)
 };
 
 class SettingsManager
@@ -84,6 +85,7 @@ class SettingsManager
     bool   getAutoCalibrateSensor();
     float  getPulseReductionPercent();         // Get pulse reduction percentage (0-100)
     bool   getTestRecordingMode();             // Get test recording mode state
+    bool   getShowDebugPage();                   // Get show debug page state
 
     void setSSID(const String &ssid);
     void setPassword(const String &password);
@@ -109,6 +111,7 @@ class SettingsManager
     void setAutoCalibrateSensor(bool autoCal);
     void setPulseReductionPercent(float percent);   // Set pulse reduction percentage (0-100)
     void setTestRecordingMode(bool enabled);       // Enable/disable test recording mode
+    void setShowDebugPage(bool show);             // Show/hide debug page in web UI
 
     String toJson(bool includePassword = true);
 };

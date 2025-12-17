@@ -109,6 +109,7 @@ static const SettingField kSettingFields[] = {
     makeFloatField("pulse_reduction_percent", offsetof(user_settings, pulse_reduction_percent), 100.0f),
     makeFloatField("purge_filament_mm", offsetof(user_settings, purge_filament_mm), 47.0f),
     makeBoolField("test_recording_mode", offsetof(user_settings, test_recording_mode), false),
+    makeBoolField("show_debug_page", offsetof(user_settings, show_debug_page), false),
 };
 
 constexpr size_t SETTINGS_JSON_CAPACITY = 1536;  // Increased from 1152 to prevent truncation
@@ -257,6 +258,7 @@ SettingsManager::SettingsManager()
     settings.pulse_reduction_percent    = 100.0f;  // Default: no reduction
     settings.purge_filament_mm          = 47.0f;
     settings.test_recording_mode        = false;
+    settings.show_debug_page            = false;
 }
 
 bool SettingsManager::load()
@@ -510,6 +512,11 @@ bool SettingsManager::getTestRecordingMode()
     return getSettings().test_recording_mode;
 }
 
+bool SettingsManager::getShowDebugPage()
+{
+    return getSettings().show_debug_page;
+}
+
 void SettingsManager::setSSID(const String &ssid)
 {
     if (!isLoaded)
@@ -715,6 +722,13 @@ void SettingsManager::setTestRecordingMode(bool enabled)
     if (!isLoaded)
         load();
     settings.test_recording_mode = enabled;
+}
+
+void SettingsManager::setShowDebugPage(bool show)
+{
+    if (!isLoaded)
+        load();
+    settings.show_debug_page = show;
 }
 
 String SettingsManager::toJson(bool includePassword)

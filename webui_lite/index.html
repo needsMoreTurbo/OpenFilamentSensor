@@ -1082,7 +1082,7 @@
                 </div>
                 <nav>
                     <button class="nav-btn active" data-page="status">Status</button>
-                    <button class="nav-btn" data-page="debug">Debug</button>
+                    <button class="nav-btn" data-page="debug" id="debugNavBtn" style="display: none;">Debug</button>
                     <button class="nav-btn" data-page="settings">Settings ⚙️</button>
                     <button class="nav-btn" data-page="logs">Logs</button>
                     <button class="nav-btn" data-page="update">Update</button>
@@ -1499,6 +1499,14 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        // Update debug nav button visibility based on settings
+        function updateDebugNavVisibility() {
+            const debugNavBtn = document.getElementById('debugNavBtn');
+            if (debugNavBtn && currentSettings) {
+                debugNavBtn.style.display = currentSettings.show_debug_page ? '' : 'none';
+            }
         }
 
         // Toast notifications
@@ -2349,7 +2357,8 @@
                 suppress_pause_commands: document.getElementById('suppress_pause_commands').checked,
                 movement_mm_per_pulse: parseFloat(document.getElementById('movement_mm_per_pulse').value),
                 auto_calibrate_sensor: document.getElementById('auto_calibrate_sensor').checked,
-                pulse_reduction_percent: parseFloat(document.getElementById('pulse_reduction_percent').value)
+                pulse_reduction_percent: parseFloat(document.getElementById('pulse_reduction_percent').value),
+                show_debug_page: document.getElementById('show_debug_page').checked
             };
         }
 
@@ -2400,6 +2409,7 @@
             try {
                 const response = await fetch('/get_settings');
                 currentSettings = await response.json();
+                updateDebugNavVisibility();
 
                 container.innerHTML = `
                     <h3 class="section-title">WiFi Settings</h3>
@@ -2547,6 +2557,12 @@
                         <p class="form-help">How often the Status page updates sensor data. Lower values = more responsive display but higher CPU usage. Recommended: 500-1000ms for active monitoring, 2000-5000ms for passive monitoring.</p>
                     </div>
 
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="show_debug_page" ${currentSettings.show_debug_page ? 'checked' : ''}>
+                        <label class="form-label" for="show_debug_page" style="margin: 0;">Show Debug Page</label>
+                        <p class="form-help" style="margin-left: 36px; margin-top: 8px;">Show the Debug page in the navigation menu. Useful for troubleshooting.</p>
+                    </div>
+
                     <div class="btn-group">
                         <button type="button" class="btn" onclick="saveSettings()">Save Settings</button>
                         <button type="button" class="btn btn-secondary" onclick="testPause()">Send Pause Command</button>
@@ -2580,6 +2596,7 @@
                     showToast('Settings saved successfully!', 'success');
                     currentSettings = settings;
                     setSettingsBaseline(settings);
+                    updateDebugNavVisibility();
                 } else {
                     throw new Error('Failed to save settings');
                 }

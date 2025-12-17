@@ -203,6 +203,11 @@ void WebServer::begin()
                 settingsManager.setTestRecordingMode(
                     jsonObj["test_recording_mode"].as<bool>());
             }
+            if (jsonObj.containsKey("show_debug_page"))
+            {
+                settingsManager.setShowDebugPage(
+                    jsonObj["show_debug_page"].as<bool>());
+            }
             bool saved = settingsManager.save();
             if (saved) {
                 // Reload settings to apply changes immediately
