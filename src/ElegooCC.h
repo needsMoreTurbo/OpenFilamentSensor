@@ -128,6 +128,8 @@ class ElegooCC
         String           pendingAckRequestId;
         unsigned long    ackWaitStartTime    = 0;
         unsigned long    lastStatusRequestMs = 0;
+        unsigned long    connectionStartMs   = 0;  // When connect() was called (for throttle bypass)
+        bool             blocked             = false;  // Discovery lockout for transport
     };
 
     TransportState        transport;
@@ -321,6 +323,10 @@ class ElegooCC
         std::vector<String> seenIps;
         std::vector<DiscoveryResult> results;
         DiscoveryCallback callback;
+        size_t lastResultCount = 0;
+        int    retryCount      = 0;
+        int    maxRetries      = 0;
+        int    probeCount      = 0;
     } discoveryState;
 };
 

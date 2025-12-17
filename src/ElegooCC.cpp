@@ -990,13 +990,23 @@ void ElegooCC::maybeRequestStatus(unsigned long currentTime)
 
 void ElegooCC::connect()
 {
+    transport.ipAddress = settingsManager.getElegooIP();
+
+    // Don't attempt connection if IP is empty or default placeholder
+    if (transport.ipAddress.length() == 0 || transport.ipAddress == "1.1.1.1")
+    {
+        //logger.log("Skipping WebSocket connection - no valid printer IP configured");
+        transport.connectionStartMs = 0;
+        return;
+    }
+
     if (transport.webSocket.isConnected())
     {
         transport.webSocket.disconnect();
     }
     transport.webSocket.setReconnectInterval(3000);
-    transport.ipAddress = settingsManager.getElegooIP();
     logger.logf("Attempting connection to Elegoo CC @ %s", transport.ipAddress.c_str());
+    transport.connectionStartMs = millis();
     transport.webSocket.begin(transport.ipAddress, CARBON_CENTAURI_PORT, "/websocket");
 }
 
@@ -1004,7 +1014,14 @@ void ElegooCC::updateTransport(unsigned long currentTime)
 {
     // Suspend WebSocket during discovery to prevent stalling the loop
     // if the configured IP is unreachable (blocking connect logic in WebSocketsClient)
-    if (discoveryState.active)
+    if (transport.blocked || discoveryState.active)
+    {
+        return;
+    }
+
+    // Skip WebSocket operations if no IP is configured or using default placeholder -
+    // prevents blocking connection attempts to unreachable addresses
+    if (transport.ipAddress.length() == 0 || transport.ipAddress == "1.1.1.1")
     {
         return;
     }
@@ -1016,6 +1033,7 @@ void ElegooCC::updateTransport(unsigned long currentTime)
 
     if (transport.webSocket.isConnected())
     {
+        transport.connectionStartMs = 0;
         if (transport.waitingForAck &&
             (currentTime - transport.ackWaitStartTime) >= ACK_TIMEOUT_MS)
         {
@@ -1032,9 +1050,49 @@ void ElegooCC::updateTransport(unsigned long currentTime)
             transport.webSocket.sendTXT("ping");
             transport.lastPing = currentTime;
         }
+        // When connected, always call loop() to process messages
+        transport.webSocket.loop();
     }
+    else
+    {
+        // Allow frequent loop() calls for a short window after connect() starts
+        bool connectionInProgress = (transport.connectionStartMs != 0) &&
+                                    ((currentTime - transport.connectionStartMs) < 10000);
+        if (!connectionInProgress && transport.connectionStartMs != 0 &&
+            (currentTime - transport.connectionStartMs) >= 10000)
+        {
+            transport.connectionStartMs = 0;  // Connection attempt timed out
+        }
 
-    transport.webSocket.loop();
+        // When disconnected, throttle loop() calls to avoid blocking the main loop
+        // during TCP connection attempts. WebSocketsClient blocks for ~5s on unreachable IPs.
+        // We throttle to every 10s when disconnected to keep the UI responsive, but bypass
+        // throttling during active connection attempts.
+        static unsigned long lastDisconnectedLoopMs = 0;
+        static bool initialized = false;
+
+        // On first call, initialize timestamp to current time to prevent immediate block
+        if (!initialized)
+        {
+            lastDisconnectedLoopMs = currentTime;
+            initialized = true;
+            if (!connectionInProgress)
+            {
+                return;  // Skip the blocking call on first iteration
+            }
+        }
+
+        if (connectionInProgress)
+        {
+            transport.webSocket.loop();
+            lastDisconnectedLoopMs = currentTime;
+        }
+        else if (currentTime - lastDisconnectedLoopMs >= 10000)
+        {
+            lastDisconnectedLoopMs = currentTime;
+            transport.webSocket.loop();
+        }
+    }
 }
 
 void ElegooCC::loop()
@@ -1043,6 +1101,13 @@ void ElegooCC::loop()
 
     updateTransport(currentTime);
     currentTime = millis();
+
+    if (transport.blocked || discoveryState.active)
+    {
+        updateDiscovery(currentTime);
+        return;
+    }
+
     updatePrintStartCandidateTimeout(currentTime);
 
     // Check filament sensors before determining if we should pause
@@ -1171,6 +1236,17 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
     // This helps detect WiFi/WebSocket/JSON processing that could miss pulses.
     // ============================================================================
     static unsigned long lastLoopTime = 0;
+    static bool wasInDiscovery = false;
+
+    // Reset lastLoopTime after discovery to avoid false stall warnings
+    // (discovery blocks the main loop for 7-14 seconds which is expected)
+    if (wasInDiscovery)
+    {
+        lastLoopTime = currentTime;
+        wasInDiscovery = false;
+    }
+    wasInDiscovery = discoveryState.active;
+
     if (lastLoopTime > 0)
     {
         unsigned long loopDelta = currentTime - lastLoopTime;
@@ -1612,6 +1688,9 @@ bool ElegooCC::startDiscoveryAsync(unsigned long timeoutMs, DiscoveryCallback ca
         return false;
     }
 
+    // Small delay after binding to ensure socket is ready
+    delay(10);
+
     // Broadcast discovery packet
     IPAddress localIp   = WiFi.localIP();
     IPAddress subnet    = WiFi.subnetMask();
@@ -1627,6 +1706,9 @@ bool ElegooCC::startDiscoveryAsync(unsigned long timeoutMs, DiscoveryCallback ca
     discoveryState.udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
     discoveryState.udp.endPacket();
 
+    // No delay here - responses will be collected by updateDiscovery() in the main loop
+    // The printer can take 100+ ms to respond, so blocking here doesn't help
+
     discoveryState.active    = true;
     discoveryState.startTime = millis();
     discoveryState.lastProbeTime = discoveryState.startTime;
@@ -1634,6 +1716,17 @@ bool ElegooCC::startDiscoveryAsync(unsigned long timeoutMs, DiscoveryCallback ca
     discoveryState.callback  = callback;
     discoveryState.seenIps.clear();
     discoveryState.results.clear();
+    discoveryState.lastResultCount = 0;
+    discoveryState.retryCount      = 0;
+    discoveryState.maxRetries      = 0;  // Single pass only - all devices respond to first broadcast
+    discoveryState.probeCount      = 1;  // First probe sent above
+
+    // Block transport/WebSocket operations while discovery runs
+    if (transport.webSocket.isConnected())
+    {
+        transport.webSocket.disconnect();
+    }
+    transport.blocked = true;
 
     return true;
 }
@@ -1644,7 +1737,8 @@ void ElegooCC::cancelDiscovery()
     {
         discoveryState.udp.stop();
         discoveryState.active = false;
-        logger.log("Async discovery cancelled");
+        transport.blocked     = false;
+        logger.log("Discovery cancelled");
     }
 }
 
@@ -1652,17 +1746,46 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
 {
     if (!discoveryState.active)
     {
+        if (transport.blocked)
+        {
+            transport.blocked = false;
+        }
         return;
     }
 
     // Check for timeout
     if ((currentTime - discoveryState.startTime) >= discoveryState.timeoutMs)
     {
-        logger.logf("Async discovery complete. Found %d printers.", discoveryState.results.size());
+        size_t currentCount = discoveryState.results.size();
+        if (currentCount > discoveryState.lastResultCount &&
+            discoveryState.retryCount < discoveryState.maxRetries)
+        {
+            discoveryState.retryCount++;
+            discoveryState.lastResultCount = currentCount;
+            discoveryState.startTime       = currentTime;
+            discoveryState.lastProbeTime   = currentTime;
+            //logger.logf("Discovery pass #%d added new printers (total=%d). Running another pass...",
+            //            discoveryState.retryCount, currentCount);
+
+            IPAddress localIp   = WiFi.localIP();
+            IPAddress subnet    = WiFi.subnetMask();
+            IPAddress broadcastIp((localIp[0] & subnet[0]) | ~subnet[0],
+                                  (localIp[1] & subnet[1]) | ~subnet[1],
+                                  (localIp[2] & subnet[2]) | ~subnet[2],
+                                  (localIp[3] & subnet[3]) | ~subnet[3]);
+
+            discoveryState.udp.beginPacket(broadcastIp, SDCP_DISCOVERY_PORT);
+            discoveryState.udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
+            discoveryState.udp.endPacket();
+            return;
+        }
+
+        logger.logf("Async discovery complete. Found %d printers.", currentCount);
         
         // Stop UDP first
         discoveryState.udp.stop();
         discoveryState.active = false;
+        transport.blocked     = false;
 
         // Invoke callback with results
         if (discoveryState.callback)
@@ -1672,33 +1795,47 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
         return;
     }
 
-    // periodic re-broadcast (every 1.5s) to ensure reliability
-    if ((currentTime - discoveryState.lastProbeTime) > 1500)
+    // Re-broadcast every 400ms to give devices staggered response opportunities
+    // The ESP32 UDP buffer may only catch one response per broadcast, so multiple
+    // probes with different timing help catch all devices
+    if ((currentTime - discoveryState.lastProbeTime) >= 400)
     {
-         IPAddress localIp   = WiFi.localIP();
-         IPAddress subnet    = WiFi.subnetMask();
-         IPAddress broadcastIp((localIp[0] & subnet[0]) | ~subnet[0],
-                               (localIp[1] & subnet[1]) | ~subnet[1],
-                               (localIp[2] & subnet[2]) | ~subnet[2],
-                               (localIp[3] & subnet[3]) | ~subnet[3]);
-         
-         logger.log("Re-sending discovery probe...");
-         discoveryState.udp.beginPacket(broadcastIp, SDCP_DISCOVERY_PORT);
-         discoveryState.udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
-         discoveryState.udp.endPacket();
+        IPAddress localIp   = WiFi.localIP();
+        IPAddress subnet    = WiFi.subnetMask();
+        IPAddress broadcastIp((localIp[0] & subnet[0]) | ~subnet[0],
+                              (localIp[1] & subnet[1]) | ~subnet[1],
+                              (localIp[2] & subnet[2]) | ~subnet[2],
+                              (localIp[3] & subnet[3]) | ~subnet[3]);
 
-         discoveryState.lastProbeTime = currentTime;
+        discoveryState.probeCount++;
+        //logger.logf("Discovery re-probe #%d", discoveryState.probeCount);
+        discoveryState.udp.beginPacket(broadcastIp, SDCP_DISCOVERY_PORT);
+        discoveryState.udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
+        discoveryState.udp.endPacket();
+
+        discoveryState.lastProbeTime = currentTime;
     }
 
     // Process all available packets
+    // Filter out our own IP (we might receive our own broadcast)
+    IPAddress myIp = WiFi.localIP();
+
     int packetSize;
     while ((packetSize = discoveryState.udp.parsePacket()) > 0)
     {
         IPAddress remoteIp = discoveryState.udp.remoteIP();
+
+        // Skip packets from ourselves
+        if (remoteIp == myIp)
+        {
+            discoveryState.udp.flush();
+            continue;
+        }
+
         if (remoteIp)
         {
             String ipStr = remoteIp.toString();
-            
+
             // Check for duplicate
             bool duplicate = false;
             for (const auto& seen : discoveryState.seenIps) {
@@ -1713,15 +1850,15 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
 
             if (!duplicate) {
                 discoveryState.seenIps.push_back(ipStr);
-                
+
                 String payload = "";
-                char buffer[128];
+                char buffer[256];  // Increased buffer for larger payloads
                 int  len = discoveryState.udp.read(buffer, sizeof(buffer) - 1);
                 if (len > 0)
                 {
                     buffer[len] = '\0';
                     payload = String(buffer);
-                    logger.logf("Discovery payload: %s", buffer);
+                    logger.logf("Discovery payload (%d bytes): %.80s...", len, buffer);
                 }
                 else
                 {
@@ -1729,11 +1866,22 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
                 }
 
                 discoveryState.results.push_back({ipStr, payload});
+
+                // WORKAROUND: Close and reopen the socket after each response
+                // The ESP32 WiFiUDP seems to get "stuck" after receiving a response,
+                // preventing subsequent responses from being received. Recycling the
+                // socket forces it to work properly.
+                discoveryState.udp.stop();
+                if (!discoveryState.udp.begin(SDCP_DISCOVERY_PORT))
+                {
+                    logger.log("Failed to reopen UDP socket during discovery");
+                }
             } else {
-                 // CRITICAL: Always drain the packet even if duplicate!
-                 discoveryState.udp.flush();
+                // CRITICAL: Always drain the packet even if duplicate!
+                discoveryState.udp.flush();
             }
         }
+        yield();
     }
 }
 

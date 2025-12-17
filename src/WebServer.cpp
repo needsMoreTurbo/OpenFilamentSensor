@@ -209,16 +209,24 @@ void WebServer::begin()
                     jsonObj["show_debug_page"].as<bool>());
             }
             bool saved = settingsManager.save();
-            if (saved) {
+            if (saved)
+            {
                 // Reload settings to apply changes immediately
                 settingsManager.load();
+                elegooCC.refreshCaches();
+                if (ipChanged)
+                {
+                    elegooCC.reconnect();  // Reconnect if IP address changed
+                }
+                jsonObj.clear();
+                request->send(200, "application/json", "{\"status\":\"ok\"}");
             }
-            elegooCC.refreshCaches();
-            if (ipChanged) {
-                elegooCC.reconnect();  // Reconnect if IP address changed
+            else
+            {
+                jsonObj.clear();
+                request->send(500, "application/json",
+                              "{\"error\":\"Failed to save settings to flash\"}");
             }
-            jsonObj.clear();
-            request->send(saved ? 200 : 500, "text/plain", saved ? "ok" : "save failed");
         }));
 
     server.on(kRouteTestPause, HTTP_POST,
@@ -235,72 +243,37 @@ void WebServer::begin()
                   request->send(200, "text/plain", "ok");
               });
 
+    // POST /discover_printer - Start discovery scan
+    server.on(kRouteDiscoverPrinter, HTTP_POST,
+              [](AsyncWebServerRequest *request)
+              {
+                  if (elegooCC.isDiscoveryActive())
+                  {
+                      request->send(200, "application/json", "{\"active\":true}");
+                      return;
+                  }
+                  elegooCC.startDiscoveryAsync(5000, nullptr);  // 5 seconds with socket recycling
+                  request->send(200, "application/json", "{\"started\":true}");
+              });
+
+    // GET /discover_printer - Poll discovery status and results
     server.on(kRouteDiscoverPrinter, HTTP_GET,
               [](AsyncWebServerRequest *request)
               {
-                  // Start discovery if not active
-                  if (!elegooCC.isDiscoveryActive()) {
-                       elegooCC.startDiscoveryAsync(7000, nullptr);
+                  DynamicJsonDocument jsonDoc(1024);
+                  jsonDoc["active"] = elegooCC.isDiscoveryActive();
+
+                  JsonArray printers = jsonDoc.createNestedArray("printers");
+                  for (const auto &res : elegooCC.getDiscoveryResults())
+                  {
+                      JsonObject p = printers.createNestedObject();
+                      p["ip"]      = res.ip;
+                      p["payload"] = res.payload;
                   }
-                  
-                  // Use shared state for the chunked response callback
-                  struct DiscoveryState {
-                      bool finished = false;
-                      String cursor = "";
-                      String json = "";
-                  };
-                  auto state = std::make_shared<DiscoveryState>();
-                  
-                  AsyncWebServerResponse *response = request->beginChunkedResponse("application/json",
-                      [state](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
-                          // 1. Send pending data (JSON result)
-                          if (state->finished) {
-                              if (state->cursor.length() > 0) {
-                                  size_t toSend = min(maxLen, state->cursor.length());
-                                  memcpy(buffer, state->cursor.c_str(), toSend);
-                                  state->cursor = state->cursor.substring(toSend);
-                                  return toSend;
-                              }
-                              return 0; // EOF - closes the response
-                          }
 
-                          // 2. Check discovery status
-                          if (!elegooCC.isDiscoveryActive()) {
-                               state->finished = true;
-                               
-                               // Build JSON result
-                               std::vector<ElegooCC::DiscoveryResult> results = elegooCC.getDiscoveryResults();
-                               // Pre-allocate to ensure we don't fragment heap too much
-                               DynamicJsonDocument jsonDoc(1024);
-                               JsonArray printers = jsonDoc.createNestedArray("printers");
-                               for (const auto& res : results) {
-                                    JsonObject p = printers.createNestedObject();
-                                    p["ip"] = res.ip;
-                                    p["payload"] = res.payload;
-                               }
-                               serializeJson(jsonDoc, state->json);
-                               state->cursor = state->json;
-                               
-                               // Send as much as we can right now
-                               size_t toSend = min(maxLen, state->cursor.length());
-                               memcpy(buffer, state->cursor.c_str(), toSend);
-                               state->cursor = state->cursor.substring(toSend);
-                               return toSend;
-                          }
-
-                          // 3. Keepalive (Wait Phase)
-                          // We must return data to keep the connection alive and chunked stream open.
-                          // Sending a space is harmless for JSON.
-                          if (maxLen > 0) {
-                              buffer[0] = ' ';
-                              return 1;
-                          }
-                          
-                          return 0;
-                      });
-                  
-                  // CRITICAL: Must register the response object with the request
-                  request->send(response);
+                  String response;
+                  serializeJson(jsonDoc, response);
+                  request->send(200, "application/json", response);
               });
 
     // Setup ElegantOTA

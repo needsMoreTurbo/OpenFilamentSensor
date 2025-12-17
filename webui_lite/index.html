@@ -614,6 +614,92 @@
             accent-color: var(--accent-primary);
         }
 
+        .radio-list {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 2px solid var(--border-color);
+        }
+
+        .radio-list .empty-state {
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        .radio-list label {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            margin: 6px 0;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .radio-list label:hover {
+            background: var(--bg-glass);
+            border-color: var(--accent-primary);
+        }
+
+        .radio-list label:has(input:checked) {
+            border-color: var(--accent-primary);
+            background: rgba(255, 107, 53, 0.1);
+        }
+
+        .radio-list input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 14px;
+            accent-color: var(--accent-primary);
+            flex-shrink: 0;
+        }
+
+        .radio-list .printer-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .radio-list .printer-ip {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .radio-list .printer-payload {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            word-break: break-word;
+        }
+
+        .scan-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .scan-status .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .btn {
             padding: 14px 28px;
             background: var(--accent-gradient);
@@ -1062,20 +1148,6 @@
             <div class="btn-group">
                 <button type="button" class="btn" id="discardSettingsBtn">Discard changes</button>
                 <button type="button" class="btn btn-secondary" id="stayOnSettingsBtn">Stay on settings</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Printer Discovery Selection Modal -->
-    <div id="discoveryModal" class="modal-backdrop">
-        <div class="modal-card" style="max-width: 600px;">
-            <h3>Select Printer</h3>
-            <p>Multiple printers found. Please select one:</p>
-            <div id="printerList" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
-                <!-- Populated by JS -->
-            </div>
-            <div class="btn-group" style="justify-content: flex-end;">
-                <button type="button" class="btn btn-secondary" onclick="closeDiscoveryModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -2452,9 +2524,24 @@
                     <h3 class="section-title">Printer Settings</h3>
 
                     <div class="form-group">
+                        <label class="form-label">Discovered Printers</label>
+                        <div id="discoveredPrintersList" class="radio-list">
+                            <div class="empty-state">No printers discovered yet. Click "Scan for Printers" to find printers on your network.</div>
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-secondary" onclick="scanForPrinters()">Scan for Printers</button>
+                            <button type="button" class="btn btn-secondary" onclick="clearDiscoveredPrinters()" style="opacity: 0.7;">Clear List</button>
+                        </div>
+                        <div id="scanStatus" class="scan-status" style="display: none;">
+                            <span class="spinner"></span> Scanning for printers...
+                        </div>
+                        <p class="form-help" style="margin-top: 8px;">Scan multiple times if both printer IPs don't appear. Results are merged across scans.</p>
+                    </div>
+
+                    <div class="form-group">
                         <label class="form-label">Elegoo Printer IP Address</label>
                         <input type="text" class="form-input" id="elegooip" value="${escapeHtml(currentSettings.elegooip)}" placeholder="xxx.xxx.xxx.xxx">
-                        <button type="button" class="btn btn-secondary" style="margin-top: 12px;" onclick="discoverPrinter()">Auto-Discover Printer</button>
+                        <p class="form-help">Select a printer from the list above, or enter the IP address manually.</p>
                     </div>
 
                     <h3 class="section-title">Detection Settings</h3>
@@ -2597,6 +2684,7 @@
 
                 attachSettingsChangeHandlers();
                 setSettingsBaseline(buildSettingsPayload());
+                loadSavedPrinters();  // Restore discovered printers from localStorage
             } catch (error) {
                 showToast('Failed to load settings: ' + error.message, 'error');
                 container.innerHTML = '<p style="color: var(--error);">Failed to load settings. Please refresh.</p>';
@@ -2617,13 +2705,27 @@
                     body: JSON.stringify(settings)
                 });
 
+                const responseText = await response.text();
                 if (response.ok) {
                     showToast('Settings saved successfully!', 'success');
                     currentSettings = settings;
                     setSettingsBaseline(settings);
                     updateDebugNavVisibility();
                 } else {
-                    throw new Error('Failed to save settings');
+                    let errorMessage = 'Failed to save settings';
+                    if (responseText) {
+                        try {
+                            const parsed = JSON.parse(responseText);
+                            if (parsed && parsed.error) {
+                                errorMessage = parsed.error;
+                            } else {
+                                errorMessage = responseText;
+                            }
+                        } catch (_) {
+                            errorMessage = responseText;
+                        }
+                    }
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
                 showToast('Failed to save settings: ' + error.message, 'error');
@@ -2656,78 +2758,186 @@
             }
         }
 
-        async function discoverPrinter() {
-            try {
-                showToast('Discovering printers...', 'info');
-                const response = await fetch('/discover_printer');
-                const data = await response.json();
+        // Printer Discovery - Polling-based implementation
+        let discoveryPollInterval = null;
 
-                if (data.printers && data.printers.length > 0) {
-                    if (data.printers.length === 1) {
-                         // Only one printer, select it automatically but let user confirm via the form
-                         selectPrinter(data.printers[0].ip);
-                         showToast(`Printer found at ${data.printers[0].ip}`, 'success');
-                    } else {
-                        // Multiple printers, show modal
-                        showDiscoveryModal(data.printers);
-                    }
-                } else if (data.elegooip) {
-                    // Backwards compatibility if backend returns old format (unlikely but safe)
-                    selectPrinter(data.elegooip);
-                    showToast(`Printer found at ${data.elegooip}`, 'success');
-                } else {
-                    showToast('No printers found on network', 'error');
-                }
+        // Track discovery passes for automatic retry
+        let discoveryPassCount = 0;
+        const MAX_DISCOVERY_PASSES = 2;  // Run 2 passes to reliably catch all devices
+
+        async function scanForPrinters() {
+            const statusEl = document.getElementById('scanStatus');
+            const listEl = document.getElementById('discoveredPrintersList');
+
+            if (statusEl) statusEl.style.display = 'flex';
+            discoveryPassCount = 0;
+
+            try {
+                await runDiscoveryPass();
             } catch (error) {
-                showToast('Discovery failed: ' + error.message, 'error');
+                showToast('Failed to start discovery: ' + error.message, 'error');
+                if (statusEl) statusEl.style.display = 'none';
             }
         }
 
-        function showDiscoveryModal(printers) {
-            const modal = document.getElementById('discoveryModal');
-            const list = document.getElementById('printerList');
-            if (!modal || !list) return;
+        async function runDiscoveryPass() {
+            discoveryPassCount++;
+            const statusEl = document.getElementById('scanStatus');
 
-            list.innerHTML = '';
-            printers.forEach(printer => {
-                const isProxy = printer.payload && printer.payload.includes("Proxy"); // Example proxy detection if payload varies
-                
-                const item = document.createElement('div');
-                item.className = 'status-item'; // Reuse status-item styling for card-like look
-                item.style.padding = '15px';
-                item.style.cursor = 'pointer';
-                item.onclick = () => {
-                    selectPrinter(printer.ip);
-                    closeDiscoveryModal();
-                };
+            // Start discovery via POST
+            const startResponse = await fetch('/discover_printer', { method: 'POST' });
+            const startData = await startResponse.json();
 
-                let infoHtml = `<div style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">${escapeHtml(printer.ip)}</div>`;
-                
-                if (printer.payload) {
-                    infoHtml += `<div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px;">Payload: ${escapeHtml(printer.payload)}</div>`;
+            if (startData.active && discoveryPassCount === 1) {
+                showToast('Discovery already in progress...', 'info');
+            } else if (discoveryPassCount === 1) {
+                showToast('Scanning for printers...', 'info');
+            }
+
+            // Clear any existing poll interval
+            if (discoveryPollInterval) {
+                clearInterval(discoveryPollInterval);
+            }
+
+            // Poll for results every 500ms
+            discoveryPollInterval = setInterval(pollDiscoveryStatus, 500);
+
+            // Safety timeout - stop polling after 4 seconds (backend is 2.5s)
+            setTimeout(() => {
+                if (discoveryPollInterval) {
+                    clearInterval(discoveryPollInterval);
+                    discoveryPollInterval = null;
+                    if (statusEl) statusEl.style.display = 'none';
                 }
-                
-                // If we had logic to detect proxies, we could add a badge here
-                // For now, we just show the payload as requested
-                
-                item.innerHTML = infoHtml;
-                list.appendChild(item);
-            });
-
-            modal.classList.add('active');
+            }, 4000);
         }
 
-        function closeDiscoveryModal() {
-            const modal = document.getElementById('discoveryModal');
-            if (modal) modal.classList.remove('active');
+        async function pollDiscoveryStatus() {
+            try {
+                const response = await fetch('/discover_printer');
+                const data = await response.json();
+
+                // Merge with existing results immediately (for display during scan)
+                const newPrinters = data.printers || [];
+                const mergedPrinters = mergeDiscoveredPrinters(newPrinters);
+                updatePrinterList(mergedPrinters);
+
+                // When this pass completes
+                if (!data.active) {
+                    clearInterval(discoveryPollInterval);
+                    discoveryPollInterval = null;
+
+                    // Save merged results
+                    localStorage.setItem('discoveredPrinters', JSON.stringify(mergedPrinters));
+
+                    // Run another pass if we haven't reached the limit
+                    // ESP32 UDP buffer can only hold ~2 packets, so multiple passes catch all devices
+                    if (discoveryPassCount < MAX_DISCOVERY_PASSES) {
+                        // Small delay before next pass
+                        setTimeout(() => {
+                            runDiscoveryPass().catch(() => {});
+                        }, 300);
+                        return;
+                    }
+
+                    // All passes complete - show final results
+                    const statusEl = document.getElementById('scanStatus');
+                    if (statusEl) statusEl.style.display = 'none';
+
+                    if (mergedPrinters.length > 0) {
+                        showToast(`Found ${mergedPrinters.length} printer(s)`, 'success');
+                    } else {
+                        showToast('No printers found on network', 'info');
+                    }
+                }
+            } catch (error) {
+                // Ignore poll errors silently, keep trying
+            }
         }
 
-        function selectPrinter(ip) {
+        function mergeDiscoveredPrinters(newPrinters) {
+            // Load existing printers from localStorage
+            let existing = [];
+            try {
+                const saved = localStorage.getItem('discoveredPrinters');
+                if (saved) {
+                    existing = JSON.parse(saved) || [];
+                }
+            } catch (e) {
+                existing = [];
+            }
+
+            // Create a map by IP for deduplication
+            const byIp = new Map();
+
+            // Add existing printers first
+            for (const p of existing) {
+                if (p.ip) {
+                    byIp.set(p.ip, p);
+                }
+            }
+
+            // Add/update with new printers (newer data takes precedence)
+            for (const p of newPrinters) {
+                if (p.ip) {
+                    byIp.set(p.ip, p);
+                }
+            }
+
+            // Convert back to array, sorted by IP
+            return Array.from(byIp.values()).sort((a, b) => a.ip.localeCompare(b.ip));
+        }
+
+        function updatePrinterList(printers) {
+            const listEl = document.getElementById('discoveredPrintersList');
+            if (!listEl) return;
+
+            const currentIp = document.getElementById('elegooip')?.value || '';
+
+            if (!printers || printers.length === 0) {
+                listEl.innerHTML = '<div class="empty-state">No printers discovered yet. Click "Scan for Printers" to find printers on your network.</div>';
+                return;
+            }
+
+            listEl.innerHTML = printers.map((p, idx) => `
+                <label>
+                    <input type="radio" name="discoveredPrinter" value="${escapeHtml(p.ip)}"
+                           ${p.ip === currentIp ? 'checked' : ''}
+                           onchange="selectDiscoveredPrinter('${escapeHtml(p.ip)}')">
+                    <div class="printer-info">
+                        <div class="printer-ip">${escapeHtml(p.ip)}</div>
+                        ${p.payload ? `<div class="printer-payload">${escapeHtml(p.payload)}</div>` : ''}
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        function selectDiscoveredPrinter(ip) {
             const input = document.getElementById('elegooip');
             if (input) {
                 input.value = ip;
-                updateSettingsDirtyState(); // Trigger dirty state to prompt save
+                updateSettingsDirtyState();
                 showToast(`Selected ${ip}. Don't forget to Save Settings!`, 'info');
+            }
+        }
+
+        function clearDiscoveredPrinters() {
+            localStorage.removeItem('discoveredPrinters');
+            updatePrinterList([]);
+            showToast('Cleared discovered printers list', 'info');
+        }
+
+        function loadSavedPrinters() {
+            try {
+                const saved = localStorage.getItem('discoveredPrinters');
+                if (saved) {
+                    const printers = JSON.parse(saved);
+                    if (printers && printers.length > 0) {
+                        updatePrinterList(printers);
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
             }
         }
 
