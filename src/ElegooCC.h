@@ -147,7 +147,6 @@ class ElegooCC
     String              mainboardID;
     String              taskId;               // Current job identifier from SDCP
     String              filename;             // Current print filename from SDCP
-    String              lastTaskId;           // Previous TaskId for change detection
     sdcp_print_status_t printStatus;
     uint8_t             machineStatusMask;  // Bitmask for active statuses
     int                 currentLayer;
@@ -189,13 +188,8 @@ class ElegooCC
     int           lastLoggedLayer;
     int           lastLoggedTotalLayer;
 
-    // Print start candidate tracking (to distinguish true job start
-    // from transient/attached PRINTING states)
-    bool          printCandidateActive;
-    bool          printCandidateSawHoming;
-    bool          printCandidateSawLeveling;
-    bool          printCandidateConditionsMet;
-    unsigned long printCandidateIdleSinceMs;
+    // Print start detection (triggered by TaskId appearance)
+    bool          newPrintDetected;
 
     // Tracking state (for UI freeze on pause)
     bool          trackingFrozen;
@@ -250,12 +244,6 @@ class ElegooCC
     void refreshSettingsCache();
     void refreshJamConfig();
 
-    // Helpers for print start detection
-    void clearPrintStartCandidate();
-    void updatePrintStartCandidate(sdcp_print_status_t previousStatus,
-                                   sdcp_print_status_t newStatus);
-    bool isPrintStartCandidateSatisfied() const;
-    void updatePrintStartCandidateTimeout(unsigned long currentTime);
     void resetRunoutPauseState();
     void updateRunoutPauseCountdown();
     bool isRunoutPauseReady() const;
