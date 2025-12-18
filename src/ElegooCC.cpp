@@ -1357,7 +1357,7 @@ printer_info_t ElegooCC::getCurrentInformation()
     info.telemetryAvailable   = telemetryAvailableLastStatus;
     // Expose deficit metrics for UI from jam detector
     info.currentDeficitMm     = jamState.deficit;
-    info.deficitThresholdMm   = 0.0f;  // Deprecated?
+    info.deficitThresholdMm   = 0.0f;
     info.deficitRatio         = jamState.deficit / (motionSensor.getExpectedDistance() > 0.1f ? motionSensor.getExpectedDistance() : 1.0f);
     info.passRatio            = jamState.passRatio;
     info.hardJamPercent       = jamState.hardJamPercent;

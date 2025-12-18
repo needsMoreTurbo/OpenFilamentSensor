@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <WiFiUdp.h>
+#include <functional>
 
 #include "FilamentMotionSensor.h"
 #include "JamDetector.h"
