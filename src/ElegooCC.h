@@ -310,9 +310,6 @@ class ElegooCC
     bool isDiscoveryActive() const { return discoveryState.active; }
     std::vector<DiscoveryResult> getDiscoveryResults() const { return discoveryState.results; }
 
-    // Legacy synchronous discovery (deprecated/blocking)
-    bool discoverPrinters(std::vector<DiscoveryResult> &results, unsigned long timeoutMs = 3000);
-
    private:
     struct DiscoveryState {
         bool active = false;
@@ -323,10 +320,6 @@ class ElegooCC
         std::vector<String> seenIps;
         std::vector<DiscoveryResult> results;
         DiscoveryCallback callback;
-        size_t lastResultCount = 0;
-        int    retryCount      = 0;
-        int    maxRetries      = 0;
-        int    probeCount      = 0;
     } discoveryState;
 };
 

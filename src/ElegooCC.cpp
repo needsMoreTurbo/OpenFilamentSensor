@@ -151,9 +151,6 @@ ElegooCC::ElegooCC()
     lastJamDetectorUpdateMs = 0;
     cacheLock = portMUX_INITIALIZER_UNLOCKED;
 
-    // TODO: send a UDP broadcast, M99999 on Port 30000, maybe using AsyncUDP.h and listen for the
-    // result. this will give us the printer IP address.
-
     // event handler - use lambda to capture 'this' pointer
     transport.webSocket.onEvent([this](WStype_t type, uint8_t *payload, size_t length)
                                 { this->webSocketEvent(type, payload, length); });
@@ -1595,85 +1592,6 @@ printer_info_t ElegooCC::getCurrentInformation()
     return info;
 }
 
-bool ElegooCC::discoverPrinters(std::vector<DiscoveryResult> &results, unsigned long timeoutMs)
-{
-    WiFiUDP udp;
-    if (!udp.begin(SDCP_DISCOVERY_PORT))
-    {
-        logger.log("Failed to open UDP socket for discovery");
-        return false;
-    }
-
-    // Use subnet-based broadcast rather than 255.255.255.255 to be friendlier
-    // to routers that filter global broadcast.
-    IPAddress localIp   = WiFi.localIP();
-    IPAddress subnet    = WiFi.subnetMask();
-    IPAddress broadcastIp((localIp[0] & subnet[0]) | ~subnet[0],
-                          (localIp[1] & subnet[1]) | ~subnet[1],
-                          (localIp[2] & subnet[2]) | ~subnet[2],
-                          (localIp[3] & subnet[3]) | ~subnet[3]);
-
-    logger.logf("Sending SDCP discovery probe to %s", broadcastIp.toString().c_str());
-
-    udp.beginPacket(broadcastIp, SDCP_DISCOVERY_PORT);
-    udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
-    udp.endPacket();
-
-    // Set to track unique IPs
-    std::vector<String> seenIps;
-    results.clear();
-
-    unsigned long start = millis();
-    while ((millis() - start) < timeoutMs)
-    {
-        int packetSize = udp.parsePacket();
-        if (packetSize > 0)
-        {
-            IPAddress remoteIp = udp.remoteIP();
-            if (remoteIp)
-            {
-                String ipStr = remoteIp.toString();
-                
-                // Check for duplicate
-                bool duplicate = false;
-                for (const auto& seen : seenIps) {
-                    if (seen == ipStr) {
-                        duplicate = true;
-                        break;
-                    }
-                }
-
-                if (!duplicate) {
-                    seenIps.push_back(ipStr);
-                    
-                    String payload = "";
-                    char buffer[128];
-                    int  len = udp.read(buffer, sizeof(buffer) - 1);
-                    if (len > 0)
-                    {
-                        buffer[len] = '\0';
-                        payload = String(buffer);
-                        logger.logf("Discovery reply from %s: %s", ipStr.c_str(), buffer);
-                    }
-                    else
-                    {
-                        logger.logf("Discovery reply from %s (no payload)", ipStr.c_str());
-                    }
-
-                    results.push_back({ipStr, payload});
-                } else {
-                     // Drain the packet if it's a duplicate
-                     udp.flush();
-                }
-            }
-        }
-        delay(10);
-    }
-
-    udp.stop();
-    return !results.empty();
-}
-
 bool ElegooCC::startDiscoveryAsync(unsigned long timeoutMs, DiscoveryCallback callback)
 {
     if (discoveryState.active)
@@ -1716,10 +1634,6 @@ bool ElegooCC::startDiscoveryAsync(unsigned long timeoutMs, DiscoveryCallback ca
     discoveryState.callback  = callback;
     discoveryState.seenIps.clear();
     discoveryState.results.clear();
-    discoveryState.lastResultCount = 0;
-    discoveryState.retryCount      = 0;
-    discoveryState.maxRetries      = 0;  // Single pass only - all devices respond to first broadcast
-    discoveryState.probeCount      = 1;  // First probe sent above
 
     // Block transport/WebSocket operations while discovery runs
     if (transport.webSocket.isConnected())
@@ -1756,31 +1670,7 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
     // Check for timeout
     if ((currentTime - discoveryState.startTime) >= discoveryState.timeoutMs)
     {
-        size_t currentCount = discoveryState.results.size();
-        if (currentCount > discoveryState.lastResultCount &&
-            discoveryState.retryCount < discoveryState.maxRetries)
-        {
-            discoveryState.retryCount++;
-            discoveryState.lastResultCount = currentCount;
-            discoveryState.startTime       = currentTime;
-            discoveryState.lastProbeTime   = currentTime;
-            //logger.logf("Discovery pass #%d added new printers (total=%d). Running another pass...",
-            //            discoveryState.retryCount, currentCount);
-
-            IPAddress localIp   = WiFi.localIP();
-            IPAddress subnet    = WiFi.subnetMask();
-            IPAddress broadcastIp((localIp[0] & subnet[0]) | ~subnet[0],
-                                  (localIp[1] & subnet[1]) | ~subnet[1],
-                                  (localIp[2] & subnet[2]) | ~subnet[2],
-                                  (localIp[3] & subnet[3]) | ~subnet[3]);
-
-            discoveryState.udp.beginPacket(broadcastIp, SDCP_DISCOVERY_PORT);
-            discoveryState.udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
-            discoveryState.udp.endPacket();
-            return;
-        }
-
-        logger.logf("Async discovery complete. Found %d printers.", currentCount);
+        logger.logf("Async discovery complete. Found %d printers.", discoveryState.results.size());
         
         // Stop UDP first
         discoveryState.udp.stop();
@@ -1807,8 +1697,6 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
                               (localIp[2] & subnet[2]) | ~subnet[2],
                               (localIp[3] & subnet[3]) | ~subnet[3]);
 
-        discoveryState.probeCount++;
-        //logger.logf("Discovery re-probe #%d", discoveryState.probeCount);
         discoveryState.udp.beginPacket(broadcastIp, SDCP_DISCOVERY_PORT);
         discoveryState.udp.write(reinterpret_cast<const uint8_t *>("M99999"), 6);
         discoveryState.udp.endPacket();
@@ -1845,26 +1733,19 @@ void ElegooCC::updateDiscovery(unsigned long currentTime)
                 }
             }
 
-            // Log every packet we see to debug "missing" printers
-            logger.logf("Discovery packet from %s (dup=%d)", ipStr.c_str(), duplicate);
-
             if (!duplicate) {
                 discoveryState.seenIps.push_back(ipStr);
 
                 String payload = "";
-                char buffer[256];  // Increased buffer for larger payloads
+                char buffer[256];
                 int  len = discoveryState.udp.read(buffer, sizeof(buffer) - 1);
                 if (len > 0)
                 {
                     buffer[len] = '\0';
                     payload = String(buffer);
-                    logger.logf("Discovery payload (%d bytes): %.80s...", len, buffer);
-                }
-                else
-                {
-                    logger.logf("Discovery payload empty");
                 }
 
+                logger.logf("Discovered printer at %s", ipStr.c_str());
                 discoveryState.results.push_back({ipStr, payload});
 
                 // WORKAROUND: Close and reopen the socket after each response
