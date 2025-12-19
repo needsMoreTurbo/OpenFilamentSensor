@@ -27,7 +27,8 @@
             --success: #34a853;
             --warning: #fbbc04;
             --error: #ea4335;
-            --idle-color: #6a93cb; /* Light blue for idle state */
+            --idle-color: #6a93cb;
+            /* Light blue for idle state */
             --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
             --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
             --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -1093,7 +1094,8 @@
     </header>
 
     <div id="versionBanner" class="version-banner hidden">
-        A new version is available! <a href="https://ofs.harpua555.dev" target="_blank" rel="noopener noreferrer">Update now</a>
+        A new version is available! <a href="https://ofs.harpua555.dev" target="_blank" rel="noopener noreferrer">Update
+            now</a>
     </div>
 
     <main class="container">
@@ -1105,11 +1107,11 @@
                 </div>
                 <div class="status-grid" id="statusGrid">
                     <!-- Will be populated by JavaScript -->
-                    </div>
-                    <div class="status-help" id="statusHelpMessage">
-                        Tap any status tile to learn what it means.
-                    </div>
                 </div>
+                <div class="status-help" id="statusHelpMessage">
+                    Tap any status tile to learn what it means.
+                </div>
+            </div>
 
             <div class="card">
                 <div class="card-header">
@@ -1151,19 +1153,19 @@
                 </div>
                 <div class="chart-card-content" id="jamChartsContent">
                     <div class="debug-chart-row">
-                    <div class="chart-panel">
-                        <div class="chart-panel-title">Hard Jam Proximity History</div>
-                        <div class="chart-container">
-                            <canvas id="hardJamHistoryChart"></canvas>
+                        <div class="chart-panel">
+                            <div class="chart-panel-title">Hard Jam Proximity History</div>
+                            <div class="chart-container">
+                                <canvas id="hardJamHistoryChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-panel">
+                            <div class="chart-panel-title">Soft Jam Proximity History</div>
+                            <div class="chart-container">
+                                <canvas id="softJamHistoryChart"></canvas>
+                            </div>
                         </div>
                     </div>
-                    <div class="chart-panel">
-                        <div class="chart-panel-title">Soft Jam Proximity History</div>
-                        <div class="chart-container">
-                            <canvas id="softJamHistoryChart"></canvas>
-                        </div>
-                    </div>
-                </div>
                 </div>
             </div>
         </div>
@@ -1173,7 +1175,8 @@
             <div class="card">
                 <div class="card-header">
                     <span>Debug Data Dump</span>
-                    <small style="font-size: 0.85rem; color: var(--text-secondary); margin-left: 12px;">Every field from the status snapshot</small>
+                    <small style="font-size: 0.85rem; color: var(--text-secondary); margin-left: 12px;">Every field from
+                        the status snapshot</small>
                 </div>
                 <div class="status-grid" id="debugGrid">
                     <!-- Populated by JavaScript -->
@@ -1243,7 +1246,9 @@
             <div class="card">
                 <div class="card-header">
                     <span>Device Configuration</span>
-                    <span id="settingsDirtyIndicator" style="display: none; margin-left: auto; color: var(--warning); font-size: 0.9rem; font-weight: 600;">Unsaved changes</span>
+                    <span id="settingsDirtyIndicator"
+                        style="display: none; margin-left: auto; color: var(--warning); font-size: 0.9rem; font-weight: 600;">Unsaved
+                        changes</span>
                 </div>
                 <div id="settingsContent">
                     <div class="spinner-container">
@@ -1258,7 +1263,8 @@
             <div class="card">
                 <div class="card-header">
                     <span>System Logs</span>
-                    <span id="logAccumulatorStatus" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: normal;">0 entries</span>
+                    <span id="logAccumulatorStatus"
+                        style="font-size: 0.85rem; color: var(--text-secondary); font-weight: normal;">0 entries</span>
                 </div>
                 <div class="btn-group">
                     <button type="button" class="btn" onclick="refreshLogs()">Refresh</button>
@@ -1267,7 +1273,8 @@
                     <button type="button" class="btn btn-secondary" onclick="clearAccumulatedLogs()">Reset</button>
                 </div>
                 <p class="form-help" style="margin: 12px 0;">
-                    Logs accumulate in your browser since page load. Download captures all entries, even those no longer on the device.
+                    Logs accumulate in your browser since page load. Download captures all entries, even those no longer
+                    on the device.
                 </p>
                 <div style="position: relative;">
                     <div class="log-container" id="logContainer">
@@ -1286,7 +1293,8 @@
         <div id="update" class="page">
             <div class="info-banner">
                 <span>Looking to install the latest version? Use the web flasher to get the newest firmware.</span>
-                <a href="https://ofs.harpua555.dev" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open Web Flasher</a>
+                <a href="https://ofs.harpua555.dev" target="_blank" rel="noopener noreferrer"
+                    class="btn btn-secondary">Open Web Flasher</a>
             </div>
             <div class="card">
                 <div class="card-header">
@@ -1322,15 +1330,18 @@
                 </div>
                 <div class="info-row">
                     <span class="info-label">Firmware Thumbprint</span>
-                    <span class="info-value" id="firmwareThumbprint" style="font-family: 'Consolas', monospace;">Loading...</span>
+                    <span class="info-value" id="firmwareThumbprint"
+                        style="font-family: 'Consolas', monospace;">Loading...</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Filesystem Thumbprint</span>
-                    <span class="info-value" id="filesystemThumbprint" style="font-family: 'Consolas', monospace;">Loading...</span>
+                    <span class="info-value" id="filesystemThumbprint"
+                        style="font-family: 'Consolas', monospace;">Loading...</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Version</span>
-                    <span class="info-value" id="buildVersion" style="font-family: 'Consolas', monospace;">Loading...</span>
+                    <span class="info-value" id="buildVersion"
+                        style="font-family: 'Consolas', monospace;">Loading...</span>
                 </div>
 
                 <h3 style="color: var(--accent-primary); margin: 24px 0 16px;">Hardware / Network</h3>
@@ -2294,7 +2305,7 @@
                 return;
             }
             lastSnapshotMs = now;
-            fetchStatusSnapshot({ suppressToast: true }).catch(() => {});
+            fetchStatusSnapshot({ suppressToast: true }).catch(() => { });
         }
 
         function setStatusHelpMessage(helpKey) {
@@ -2421,6 +2432,19 @@
                 const response = await fetch('/get_settings');
                 currentSettings = await response.json();
                 updateDebugNavVisibility();
+
+                // Auto-sync timezone if needed
+                const browserOffset = new Date().getTimezoneOffset();
+                if (currentSettings.timezone_offset_minutes !== browserOffset) {
+                    console.log(`Syncing timezone offset: ${currentSettings.timezone_offset_minutes} -> ${browserOffset}`);
+                    fetch('/update_settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ timezone_offset_minutes: browserOffset })
+                    }).then(() => {
+                        currentSettings.timezone_offset_minutes = browserOffset;
+                    }).catch(err => console.error('Failed to sync timezone', err));
+                }
 
                 container.innerHTML = `
                     <h3 class="section-title">WiFi Settings</h3>
@@ -2713,10 +2737,13 @@
          */
         function compareLogTimestamps(a, b) {
             // Parse MM.DD.YY-HH:MM:SS to comparable YYMMDDHHMMSS
+            // Parse [YYYY-MM-DD HH:MM:SS] or YYYY-MM-DD HH:MM:SS to comparable start
+            // Supports both bracketed (Serial) and partial (LogText) formats if mixed,
+            // but we standardize on "YYYY-MM-DD HH:MM:SS"
             const parseTs = (ts) => {
-                const match = ts.match(/^(\d{2})\.(\d{2})\.(\d{2})-(\d{2}):(\d{2}):(\d{2})/);
-                if (!match) return '000000000000';
-                const [, mm, dd, yy, hh, min, ss] = match;
+                const match = ts.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+                if (!match) return '00000000000000';
+                const [, yy, mm, dd, hh, min, ss] = match;
                 return `${yy}${mm}${dd}${hh}${min}${ss}`;
             };
             return parseTs(a).localeCompare(parseTs(b));
@@ -2725,14 +2752,15 @@
         function formatLogTimestamp() {
             const now = new Date();
             const pad = (value) => String(value).padStart(2, '0');
+            const yy = now.getFullYear();
             const mm = pad(now.getMonth() + 1);
             const dd = pad(now.getDate());
-            const yy = pad(now.getFullYear() % 100);
             const hh = pad(now.getHours());
             const min = pad(now.getMinutes());
             const ss = pad(now.getSeconds());
-            return `${mm}.${dd}.${yy}-${hh}:${min}:${ss}`;
+            return `${yy}-${mm}-${dd} ${hh}:${min}:${ss}`;
         }
+
 
         function addLocalLogEntry(message) {
             const entry = `${formatLogTimestamp()} ${message}`;
@@ -2811,7 +2839,7 @@
 
         function debounce(fn, delay) {
             let timer;
-            return function(...args) {
+            return function (...args) {
                 clearTimeout(timer);
                 timer = setTimeout(() => fn.apply(this, args), delay);
             };
@@ -2938,17 +2966,40 @@
             }
         }
 
-        function clearLogsDisplay() {
-            const container = document.getElementById('logContainer');
-            container.innerHTML = '<div class="log-entry info">Display cleared. Logs will refresh automatically.</div>';
-            showToast('Display cleared (accumulated logs preserved)', 'info');
-        }
+        async function clearLogsDisplay() {
+            try {
+                // Clear logs on the ESP32 first so they don't come back on next poll
+                const response = await fetch('/api/logs/clear', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                showToast('Failed to clear device logs: ' + error.message, 'error');
+                // Continue to clear browser-side anyway
+            }
 
-        function clearAccumulatedLogs() {
             initLogAccumulator();
             const container = document.getElementById('logContainer');
-            container.innerHTML = '<div class="log-entry info">Accumulator reset. Fresh collection started.</div>';
-            showToast('Log accumulator reset', 'info');
+            container.innerHTML = '<div class="log-entry info">Display cleared. Fresh collection started.</div>';
+            showToast('Display cleared', 'success');
+        }
+
+        async function clearAccumulatedLogs() {
+            try {
+                // Clear logs on the ESP32 first so they don't come back on next poll
+                const response = await fetch('/api/logs/clear', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                showToast('Failed to clear device logs: ' + error.message, 'error');
+                // Continue to clear browser-side anyway
+            }
+
+            initLogAccumulator();
+            const container = document.getElementById('logContainer');
+            container.innerHTML = '<div class="log-entry info">Logs cleared. Fresh collection started.</div>';
+            showToast('Logs cleared', 'success');
         }
 
         // Update Page (Lite OTA helper)
@@ -3063,8 +3114,8 @@
                 const latest = parseVersion(latestVersion);
 
                 if (latest.major > current.major ||
-                   (latest.major === current.major && latest.minor > current.minor) ||
-                   (latest.major === current.major && latest.minor === current.minor && latest.patch > current.patch)) {
+                    (latest.major === current.major && latest.minor > current.minor) ||
+                    (latest.major === current.major && latest.minor === current.minor && latest.patch > current.patch)) {
                     if (banner) {
                         banner.classList.remove('hidden');
                     }
