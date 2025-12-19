@@ -31,6 +31,7 @@ struct user_settings
     float  pulse_reduction_percent;  // Pulse reduction for testing (0-100, default 100)
     bool   test_recording_mode;    // Enable CSV test data recording to ./condensed directory
     bool   show_debug_page;        // Show Debug page in web UI (default false)
+    int    timezone_offset_minutes; // Offset from UTC in minutes (e.g., -300 for EST)
 };
 
 class SettingsManager
@@ -111,6 +112,8 @@ class SettingsManager
     void setPulseReductionPercent(float percent);   // Set pulse reduction percentage (0-100)
     void setTestRecordingMode(bool enabled);       // Enable/disable test recording mode
     void setShowDebugPage(bool show);             // Show/hide debug page in web UI
+    int    getTimezoneOffsetMinutes();
+    void setTimezoneOffsetMinutes(int offsetMinutes);
 
     String toJson(bool includePassword = true);
 };

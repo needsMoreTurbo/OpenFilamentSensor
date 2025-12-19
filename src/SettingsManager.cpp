@@ -109,6 +109,7 @@ static const SettingField kSettingFields[] = {
     makeFloatField("pulse_reduction_percent", offsetof(user_settings, pulse_reduction_percent), 100.0f),
     makeBoolField("test_recording_mode", offsetof(user_settings, test_recording_mode), false),
     makeBoolField("show_debug_page", offsetof(user_settings, show_debug_page), false),
+    makeIntField("timezone_offset_minutes", offsetof(user_settings, timezone_offset_minutes), 0),
 };
 
 constexpr size_t SETTINGS_JSON_CAPACITY = 1536;  // Increased from 1152 to prevent truncation
@@ -257,6 +258,7 @@ SettingsManager::SettingsManager()
     settings.pulse_reduction_percent    = 100.0f;  // Default: no reduction
     settings.test_recording_mode        = false;
     settings.show_debug_page            = false;
+    settings.timezone_offset_minutes    = 0;      // Default to UTC
 }
 
 bool SettingsManager::load()
@@ -727,6 +729,18 @@ void SettingsManager::setShowDebugPage(bool show)
     if (!isLoaded)
         load();
     settings.show_debug_page = show;
+}
+
+int SettingsManager::getTimezoneOffsetMinutes()
+{
+    return getSettings().timezone_offset_minutes;
+}
+
+void SettingsManager::setTimezoneOffsetMinutes(int offsetMinutes)
+{
+    if (!isLoaded)
+        load();
+    settings.timezone_offset_minutes = offsetMinutes;
 }
 
 String SettingsManager::toJson(bool includePassword)

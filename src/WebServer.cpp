@@ -17,6 +17,7 @@ constexpr const char kRouteDiscoverPrinter[]  = "/discover_printer";
 constexpr const char kRouteSensorStatus[]     = "/sensor_status";
 constexpr const char kRouteLogsText[]         = "/api/logs_text";
 constexpr const char kRouteLogsLive[]         = "/api/logs_live";
+constexpr const char kRouteLogsClear[]        = "/api/logs/clear";
 constexpr const char kRouteVersion[]          = "/version";
 constexpr const char kRouteStatusEvents[]     = "/status_events";
 constexpr const char kRouteLiteRoot[]         = "/lite";
@@ -208,6 +209,11 @@ void WebServer::begin()
                 settingsManager.setShowDebugPage(
                     jsonObj["show_debug_page"].as<bool>());
             }
+            if (jsonObj.containsKey("timezone_offset_minutes"))
+            {
+                settingsManager.setTimezoneOffsetMinutes(
+                    jsonObj["timezone_offset_minutes"].as<int>());
+            }
             bool saved = settingsManager.save();
             if (saved) {
                 // Reload settings to apply changes immediately
@@ -340,6 +346,15 @@ void WebServer::begin()
               {
                   String textResponse = logger.getLogsAsText(100);  // Only last 100 entries
                   request->send(200, "text/plain", textResponse);
+              });
+
+    // Clear logs endpoint
+    server.on(kRouteLogsClear, HTTP_POST,
+              [](AsyncWebServerRequest *request)
+              {
+                  logger.clearLogs();
+                  logger.log("Logs cleared via web UI");
+                  request->send(200, "text/plain", "ok");
               });
 
     // Version endpoint

@@ -83,6 +83,18 @@ void Logger::logInternal(const char *message, LogLevel level)
     }
 
     // Print to serial first
+    unsigned long timestamp = getTime();
+    time_t localTimestamp = (time_t)timestamp;
+    struct tm *timeinfo = localtime(&localTimestamp);
+     if (timeinfo != nullptr) {
+        char timeStr[24];
+        strftime(timeStr, sizeof(timeStr), "[%Y-%m-%d %H:%M:%S] ", timeinfo);
+        Serial.print(timeStr);
+    } else {
+        Serial.print("[");
+        Serial.print(timestamp);
+        Serial.print("] ");
+    }
     Serial.println(message);
 
     if (logCapacity == 0 || logBuffer == nullptr)
@@ -95,7 +107,8 @@ void Logger::logInternal(const char *message, LogLevel level)
     generateUUID(uuid);
 
     // Get current timestamp
-    unsigned long timestamp = getTime();
+    // Timestamp already captured at start of function
+    // unsigned long timestamp = getTime();
 
     // Store in circular buffer with fixed-size copy
     strncpy(logBuffer[currentIndex].uuid, uuid, sizeof(logBuffer[currentIndex].uuid) - 1);
@@ -261,8 +274,8 @@ String Logger::getLogsAsText(int maxEntries)
         time_t localTimestamp = logBuffer[bufferIndex].timestamp;
         struct tm *timeinfo = localtime(&localTimestamp);
         if (timeinfo != nullptr) {
-            char timeStr[20];
-            strftime(timeStr, sizeof(timeStr), "%m.%d.%y-%H:%M:%S", timeinfo);
+            char timeStr[24];
+            strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeinfo);
             result += timeStr;
         } else {
             result += String(logBuffer[bufferIndex].timestamp);
