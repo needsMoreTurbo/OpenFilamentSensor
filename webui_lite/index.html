@@ -1288,11 +1288,12 @@
     <div class="toast-container" id="toastContainer"></div>
     <div id="unsavedModal" class="modal-backdrop">
         <div class="modal-card">
-            <h3>Unsaved settings</h3>
-            <p>You have unsaved settings changes. Discard them and leave?</p>
+            <h3>Unsaved Changes</h3>
+            <p>Save your changes before leaving?</p>
             <div class="btn-group">
-                <button type="button" class="btn" id="discardSettingsBtn">Discard changes</button>
-                <button type="button" class="btn btn-secondary" id="stayOnSettingsBtn">Stay on settings</button>
+                <button type="button" class="btn" id="saveAndLeaveBtn">Save Changes</button>
+                <button type="button" class="btn btn-secondary" id="discardSettingsBtn">Discard Changes</button>
+                <button type="button" class="btn btn-secondary" id="stayOnSettingsBtn">Return to Settings</button>
             </div>
         </div>
     </div>
@@ -2082,8 +2083,22 @@
             closeUnsavedModal();
         }
 
+        async function saveAndLeave() {
+            closeUnsavedModal();
+            await saveSettings();
+            if (!settingsDirty) {
+                const target = pendingPageSwitch;
+                pendingPageSwitch = null;
+                if (target) {
+                    performPageSwitch(target);
+                }
+            }
+        }
+
+        const saveAndLeaveBtn = document.getElementById('saveAndLeaveBtn');
         const discardSettingsBtn = document.getElementById('discardSettingsBtn');
         const stayOnSettingsBtn = document.getElementById('stayOnSettingsBtn');
+        if (saveAndLeaveBtn) saveAndLeaveBtn.addEventListener('click', saveAndLeave);
         if (discardSettingsBtn) discardSettingsBtn.addEventListener('click', confirmDiscardSettings);
         if (stayOnSettingsBtn) stayOnSettingsBtn.addEventListener('click', stayOnSettings);
 
