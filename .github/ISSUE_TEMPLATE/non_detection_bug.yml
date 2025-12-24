@@ -1,0 +1,123 @@
+name: Non-Detection Bug
+description: Report issues not related to filament detection (web UI, logging, OTA, etc.)
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! This template covers issues that are NOT related to core filament detection.
+        Use this for web UI problems, logging issues, OTA update problems, connectivity issues, configuration problems, etc.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the system is affected?
+      options:
+        - Web UI / Dashboard
+        - OTA Updates
+        - WiFi Connectivity
+        - Logging System
+        - Configuration Management
+        - System Services
+        - Build/Compilation
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what's going wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the issue
+      placeholder: |
+        1. Open the Web UI...
+        2. Navigate to...
+        3. Click on...
+        4. Bug occurs...
+    validations:
+      required: true
+
+  - type: input
+    id: esp32-board
+    attributes:
+      label: ESP32 Board
+      description: Which ESP32 board are you using?
+      placeholder: e.g., ESP32-S3 DevKitC-1, Seeed XIAO ESP32-S3, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware Version
+      description: What firmware version are you running?
+      placeholder: Check the Web UI or use git commit hash
+    validations:
+      required: true
+
+  - type: input
+    id: browser-info
+    attributes:
+      label: Browser/Client Info (if applicable)
+      description: What web browser and client are you using? (for web UI issues)
+      placeholder: e.g., Chrome 120, Firefox 121, Safari, etc.
+
+  - type: textarea
+    id: error-messages
+    attributes:
+      label: Error Messages
+      description: Copy and paste any error messages you're seeing
+      placeholder: Paste exact error messages here...
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please provide relevant logs from serial monitor, Web UI console, or browser developer tools
+      placeholder: Paste logs here...
+      render: text
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: Describe what the correct behavior should be...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually occurred...
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (if applicable)
+      description: Add screenshots to help explain your problem
+      placeholder: You can drag and drop images here...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information about the problem
+      placeholder: Add any additional context that might help...
