@@ -1,0 +1,152 @@
+name: Crash Report
+description: Report ESP32 crashes, reboots, or system instability
+title: "[CRASH]: "
+labels: ["bug", "crash"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a crash! This template covers ESP32 crashes, unexpected reboots, watchdog timeouts, and system instability.
+        Please provide as much diagnostic information as possible.
+
+  - type: dropdown
+    id: crash-type
+    attributes:
+      label: Crash Type
+      description: What type of crash are you experiencing?
+      options:
+        - Unexpected Reboot/Restart
+        - Watchdog Timeout
+        - Stack Overflow
+        - Exception/Fault
+        - Memory Allocation Failure
+        - Freeze/Hang (no reboot)
+        - Boot Loop
+        - Other Crash
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash-description
+    attributes:
+      label: Crash Description
+      description: Describe what happens when the crash occurs
+      placeholder: Explain the crash symptoms and when it happens...
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash-details
+    attributes:
+      label: Crash Details
+      description: Specific information about the crash (stack traces, exception codes, etc.)
+      placeholder: |
+        If you see any of the following, please copy them here:
+        - Guru Meditation Error
+        - Exception details
+        - Stack trace
+        - Backtrace
+        - Memory dump
+      render: text
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: What leads to the crash? Be as specific as possible.
+      placeholder: |
+        1. Power on the device
+        2. Start printing...
+        3. Crash occurs after X minutes/hours...
+        4. Or: Crash happens when accessing Web UI...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Crash Frequency
+      description: How often does this crash occur?
+      options:
+        - Every time (reproducible)
+        - Often (multiple times per day)
+        - Sometimes (once per day)
+        - Occasionally (once per week)
+        - Rarely (first time or very infrequent)
+    validations:
+      required: true
+
+  - type: input
+    id: esp32-board
+    attributes:
+      label: ESP32 Board
+      description: Which ESP32 board are you using?
+      placeholder: e.g., ESP32-S3 DevKitC-1, Seeed XIAO ESP32-S3, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware Version
+      description: What firmware version are you running?
+      placeholder: Check the Web UI or use git commit hash
+    validations:
+      required: true
+
+  - type: input
+    id: printer-model
+    attributes:
+      label: Printer Model (if applicable)
+      description: What 3D printer are you using with OpenFilamentSensor?
+      placeholder: e.g., Elegoo Neptune 4, Creality Ender 3, etc.
+
+  - type: textarea
+    id: serial-logs
+    attributes:
+      label: Serial Monitor Logs
+      description: Please provide logs from the serial monitor around the time of the crash
+      placeholder: Paste serial output here, especially boot messages and crash details...
+      render: text
+
+  - type: textarea
+    id: system-state
+    attributes:
+      label: System State at Time of Crash
+      description: What was the system doing when it crashed?
+      placeholder: |
+        - Was a print running?
+        - Was the Web UI being accessed?
+        - Was an OTA update in progress?
+        - What was the WiFi status?
+        - Any recent configuration changes?
+
+  - type: textarea
+    id: recent-changes
+    attributes:
+      label: Recent Changes
+      description: Any recent changes to hardware, software, or configuration?
+      placeholder: |
+        - New firmware version?
+        - Hardware modifications?
+        - Different sensor?
+        - Configuration changes?
+        - Network changes?
+
+  - type: textarea
+    id: power-info
+    attributes:
+      label: Power Information
+      description: Details about power supply and connections
+      placeholder: |
+        - Power source (USB, external PSU, etc.)
+        - Voltage measurements (if available)
+        - Cable length/gauge
+        - Any power-related issues observed
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information about the crash
+      placeholder: Add any additional context that might help diagnose the crash...

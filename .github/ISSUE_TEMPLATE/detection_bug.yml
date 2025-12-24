@@ -1,0 +1,125 @@
+name: Detection Bug
+description: Report issues with filament/jam detection (false alarms or missed detections)
+title: "[DETECTION]: "
+labels: ["bug", "detection"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a detection issue! This template covers problems with the core filament detection functionality.
+        Please provide detailed information to help us diagnose and fix the issue.
+
+  - type: dropdown
+    id: detection-type
+    attributes:
+      label: Detection Issue Type
+      description: What type of detection problem are you experiencing?
+      options:
+        - False Detection (detecting jam when none exists)
+        - Missed Detection (failing to detect actual jam)
+        - Intermittent Detection (inconsistent behavior)
+        - Other Detection Issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem Description
+      description: Describe the detection issue you're experiencing
+      placeholder: Explain what's happening with the detection system...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the detection issue
+      placeholder: |
+        1. Power on the system
+        2. Start printing...
+        3. Issue occurs...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sensor-type
+    attributes:
+      label: Sensor Type
+      description: What type of filament sensor are you using?
+      options:
+        - BigTreeTech Smart Filament Sensor
+        - BigTreeTech Filament Runout Sensor
+        - Generic/Other Motion Sensor
+        - Generic/Other Runout Sensor
+    validations:
+      required: true
+
+  - type: input
+    id: esp32-board
+    attributes:
+      label: ESP32 Board
+      description: Which ESP32 board are you using?
+      placeholder: e.g., ESP32-S3 DevKitC-1, Seeed XIAO ESP32-S3, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware Version
+      description: What firmware version are you running?
+      placeholder: Check the Web UI or use git commit hash
+    validations:
+      required: true
+
+  - type: input
+    id: printer-model
+    attributes:
+      label: Printer Model
+      description: What 3D printer are you using with OpenFilamentSensor?
+      placeholder: e.g., Elegoo Neptune 4, Creality Ender 3, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Relevant Configuration
+      description: Share your detection settings (sensitivity, thresholds, etc.)
+      placeholder: Copy relevant settings from the Web UI or config file
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Please provide relevant logs from the serial monitor or Web UI
+      placeholder: Paste logs here, especially around the time of the detection issue
+      render: text
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: Describe what the correct behavior should be...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually occurred...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information (print speed, filament type, environmental conditions, etc.)
+      placeholder: Add any additional context that might help diagnose the issue...

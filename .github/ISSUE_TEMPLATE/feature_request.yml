@@ -1,0 +1,65 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for OpenFilamentSensor
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a new feature for OpenFilamentSensor!
+        Please provide as much detail as possible to help us understand and evaluate your request.
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Feature Description
+      description: A clear and concise description of the feature you'd like to see added
+      placeholder: Describe the feature you want to see implemented...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: How would this feature benefit you or other users? What problem would it solve?
+      placeholder: Explain why this feature would be useful...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: How do you envision this feature working? Any specific implementation ideas?
+      placeholder: Describe how you think this could be implemented...
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the system would this feature affect?
+      options:
+        - Firmware/ESP32
+        - Web UI
+        - Detection Algorithm
+        - OTA Updates
+        - Configuration
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: Describe any alternatives you've thought about...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information, screenshots, or examples that might help explain the feature request
+      placeholder: Add any additional context here...
