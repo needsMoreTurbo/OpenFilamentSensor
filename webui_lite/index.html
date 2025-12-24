@@ -1332,6 +1332,18 @@
         </div>
     </div>
 
+    <div id="resetModal" class="modal-backdrop">
+        <div class="modal-card">
+            <h3>Reset ESP32</h3>
+            <p>This immediately reboots the ESP32. This can disrupt an active print, drop the printer connection completely, and
+                clear in-memory logs. Only continue if it is safe to restart.</p>
+            <div class="btn-group">
+                <button type="button" class="btn btn-danger" id="confirmResetBtn">Reset Now</button>
+                <button type="button" class="btn btn-secondary" id="cancelResetBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Minimal Mode Overlay -->
     <div id="minimalModeOverlay" class="minimal-mode-overlay">
         <div class="minimal-header">
@@ -1426,9 +1438,13 @@
                 <div class="card-header">
                     <span>Printer Controls</span>
                 </div>
-                <div class="btn-group" style="padding: 16px;">
-                    <button type="button" class="btn btn-secondary" onclick="testPause()">Send Pause Command</button>
-                    <button type="button" class="btn btn-secondary" onclick="testResume()">Send Resume Command</button>
+                <div style="padding: 16px;">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="testPause()">Send Pause Command</button>
+                        <button type="button" class="btn btn-secondary" onclick="testResume()">Send Resume Command</button>
+                        <button type="button" class="btn btn-secondary" onclick="openPrinterUi()">Open Printer UI</button>
+                        <button type="button" class="btn btn-danger" onclick="openResetModal()">Restart ESP32</button>
+                    </div>
                 </div>
             </div>
 
@@ -1693,7 +1709,7 @@
                     <h3 style="color: var(--accent-primary); margin-bottom: 16px;">Device Actions</h3>
                     <div class="btn-group">
                         <button type="button" class="btn btn-secondary" onclick="resetDevice()"> Restart
-                            Device</button>
+                            ESP32</button>
                     </div>
                     <p class="form-help" style="margin-top: 12px;">
                         Restarts the ESP32. Connection will be lost temporarily.
@@ -2140,6 +2156,23 @@
             modal.classList.remove('active');
         }
 
+        function openResetModal() {
+            const modal = document.getElementById('resetModal');
+            if (!modal) return;
+            modal.classList.add('active');
+        }
+
+        function closeResetModal() {
+            const modal = document.getElementById('resetModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+        }
+
+        function confirmResetDevice() {
+            closeResetModal();
+            resetDevice();
+        }
+
         function confirmDiscardSettings() {
             settingsDirty = false;
             updateSettingsDirtyIndicator();
@@ -2174,6 +2207,10 @@
         if (saveAndLeaveBtn) saveAndLeaveBtn.addEventListener('click', saveAndLeave);
         if (discardSettingsBtn) discardSettingsBtn.addEventListener('click', confirmDiscardSettings);
         if (stayOnSettingsBtn) stayOnSettingsBtn.addEventListener('click', stayOnSettings);
+        const confirmResetBtn = document.getElementById('confirmResetBtn');
+        const cancelResetBtn = document.getElementById('cancelResetBtn');
+        if (confirmResetBtn) confirmResetBtn.addEventListener('click', confirmResetDevice);
+        if (cancelResetBtn) cancelResetBtn.addEventListener('click', closeResetModal);
 
         function switchPage(pageName) {
             const activePage = document.querySelector('.page.active');
@@ -3826,6 +3863,39 @@
 
             const stripped = afterV.replace(/^v+/i, '').trim();
             return stripped || '0.0.0';
+        }
+
+        async function getPrinterIpAddress() {
+            let ip = currentSettings?.elegooip;
+            if (ip) {
+                return ip;
+            }
+
+            try {
+                const response = await fetch('/get_settings');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                if (!currentSettings) {
+                    currentSettings = data;
+                }
+                ip = data.elegooip;
+            } catch (error) {
+                addLocalLogEntry(`Failed to fetch printer IP: ${error.message}`);
+            }
+
+            return ip;
+        }
+
+        async function openPrinterUi() {
+            const ip = await getPrinterIpAddress();
+            if (!ip) {
+                showToast('Printer IP not set. Configure it in Settings first.', 'warning');
+                return;
+            }
+            const url = `http://${ip}:3030`;
+            window.open(url, '_blank', 'noopener');
         }
 
         // About Page
