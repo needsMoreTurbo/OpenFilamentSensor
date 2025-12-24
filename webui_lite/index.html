@@ -3054,7 +3054,7 @@
                     <div class="form-group">
                         <label class="form-label">Detection Grace Period (ms)</label>
                         <input type="number" class="form-input" id="detection_grace_period_ms" value="${currentSettings.detection_grace_period_ms || 8000}" min="0" max="15000" step="100">
-                        <p class="form-help">Time-based grace period after print starts before jam detection activates. Prevents false positives during print startup. The windowed tracking algorithm automatically handles purge lines and SDCP timing variations. Default: 5000ms.</p>
+                        <p class="form-help">Time-based grace period after print starts before jam detection activates. Prevents false positives during print startup. The windowed tracking algorithm automatically handles purge lines and SDCP timing variations. Default: 18000ms.</p>
                     </div>
 
                     <h3 class="section-title">Jam Detection Thresholds</h3>
@@ -3098,7 +3098,7 @@
 
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="enabled" ${currentSettings.enabled ? 'checked' : ''}>
-                        <label class="form-label" for="enabled" style="margin: 0;">Enable filament monitoring</label>
+                        <label class="form-label" for="enabled" style="margin: 0;">Enable filament presence monitoring</label>
                     </div>
 
                     <div class="form-group checkbox-group">
