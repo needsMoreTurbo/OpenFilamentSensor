@@ -11,7 +11,7 @@
   "detection_hard_jam_mm": 12.0,
   "detection_hard_jam_time_ms": 3000,
   "detection_mode": 0,
-  "pause_on_runout": true,
+  "pause_on_runout": false,
   "enabled": true,
   "auto_calibrate_sensor": false,
   "log_level": 1,
