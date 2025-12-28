@@ -1,6 +1,9 @@
 #include "WebServer.h"
 
 #include <AsyncJson.h>
+#include <esp_core_dump.h>
+#include <esp_partition.h>
+#include <esp_system.h>
 
 #include "ElegooCC.h"
 #include "Logger.h"
@@ -18,6 +21,10 @@ constexpr const char kRouteSensorStatus[]     = "/sensor_status";
 constexpr const char kRouteLogsText[]         = "/api/logs_text";
 constexpr const char kRouteLogsLive[]         = "/api/logs_live";
 constexpr const char kRouteLogsClear[]        = "/api/logs/clear";
+constexpr const char kRouteCoredump[]         = "/api/coredump";
+constexpr const char kRouteCoredumpStatus[]   = "/api/coredump/status";
+constexpr const char kRouteCoredumpClear[]    = "/api/coredump/clear";
+constexpr const char kRoutePanic[]            = "/api/panic";
 constexpr const char kRouteVersion[]          = "/version";
 constexpr const char kRouteStatusEvents[]     = "/status_events";
 constexpr const char kRouteLiteRoot[]         = "/lite";
@@ -318,6 +325,95 @@ void WebServer::begin()
                   request->send(streamResponse);
               });
 
+    // Coredump download endpoint (raw partition bytes)
+    server.on(kRouteCoredump, HTTP_GET,
+              [](AsyncWebServerRequest *request)
+              {
+                  if (esp_core_dump_image_check() != ESP_OK)
+                  {
+                      request->send(404, "text/plain", "No coredump available");
+                      return;
+                  }
+
+                  const esp_partition_t *partition =
+                      esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+                                               ESP_PARTITION_SUBTYPE_DATA_COREDUMP,
+                                               nullptr);
+                  if (!partition || partition->size == 0)
+                  {
+                      request->send(404, "text/plain", "Coredump partition not found");
+                      return;
+                  }
+
+                  const size_t partitionSize = partition->size;
+                  AsyncWebServerResponse *response =
+                      request->beginChunkedResponse(
+                          "application/octet-stream",
+                          [partition, partitionSize](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+                              if (index >= partitionSize || maxLen == 0)
+                              {
+                                  return 0;
+                              }
+
+                              size_t toRead = partitionSize - index;
+                              if (toRead > maxLen)
+                              {
+                                  toRead = maxLen;
+                              }
+
+                              if (esp_partition_read(partition, index, buffer, toRead) != ESP_OK)
+                              {
+                                  return 0;
+                              }
+
+                              return toRead;
+                          });
+
+                  response->addHeader(
+                      "Content-Disposition",
+                      "attachment; filename=\"coredump.bin\"");
+                  request->send(response);
+              });
+
+    // Coredump status endpoint
+    server.on(kRouteCoredumpStatus, HTTP_GET,
+              [](AsyncWebServerRequest *request)
+              {
+                  const esp_partition_t *partition =
+                      esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+                                               ESP_PARTITION_SUBTYPE_DATA_COREDUMP,
+                                               nullptr);
+                  bool available = (partition != nullptr && partition->size > 0 &&
+                                    esp_core_dump_image_check() == ESP_OK);
+                  request->send(200, "application/json",
+                                available ? "{\"available\":true}" : "{\"available\":false}");
+              });
+
+    // Coredump clear endpoint (erase coredump partition)
+    server.on(kRouteCoredumpClear, HTTP_POST,
+              [](AsyncWebServerRequest *request)
+              {
+                  const esp_partition_t *partition =
+                      esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+                                               ESP_PARTITION_SUBTYPE_DATA_COREDUMP,
+                                               nullptr);
+                  if (!partition || partition->size == 0)
+                  {
+                      request->send(404, "text/plain", "Coredump partition not found");
+                      return;
+                  }
+
+                  esp_err_t err = esp_partition_erase_range(partition, 0, partition->size);
+                  if (err != ESP_OK)
+                  {
+                      request->send(500, "text/plain", "Failed to clear coredump");
+                      return;
+                  }
+
+                  logger.log("Coredump cleared via web UI");
+                  request->send(200, "text/plain", "ok");
+              });
+
     // Live logs endpoint (last 100 entries for UI display)
     server.on(kRouteLogsLive, HTTP_GET,
               [](AsyncWebServerRequest *request)
@@ -334,6 +430,18 @@ void WebServer::begin()
                   logger.log("Logs cleared via web UI");
                   request->send(200, "text/plain", "ok");
               });
+
+    // Trigger a controlled panic for testing coredumps
+#ifdef ENABLE_CRASH_TESTING
+    server.on(kRoutePanic, HTTP_POST,
+              [](AsyncWebServerRequest *request)
+              {
+                  logger.log("Panic requested via web UI");
+                  request->send(200, "text/plain", "Triggering panic...");
+                  delay(250);
+                  esp_system_abort("User-requested panic");
+              });
+#endif
 
     // Version endpoint
     server.on(kRouteVersion, HTTP_GET,
