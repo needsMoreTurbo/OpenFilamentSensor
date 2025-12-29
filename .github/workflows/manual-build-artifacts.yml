@@ -7,6 +7,10 @@ on:
         description: 'Comma-separated PlatformIO envs (e.g., "esp32s3,esp32c3").'
         required: true
         default: "esp32s3"
+      ref:
+        description: 'Git ref to build (commit SHA, tag, or branch).'
+        required: true
+        default: "main"
       firmware_label:
         description: 'Firmware label for Project Status (FIRMWARE_VERSION).'
         required: true
@@ -98,6 +102,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-python@v5
         with:

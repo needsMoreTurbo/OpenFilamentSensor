@@ -219,7 +219,7 @@ jobs:
           ARTIFACT_DIR="release-assets-${{ matrix.env }}"
           mkdir -p "$ARTIFACT_DIR"
 
-          for name in firmware.bin firmware_merged.bin littlefs.bin bootloader.bin partitions.bin; do
+          for name in firmware.bin firmware_merged.bin littlefs.bin bootloader.bin partitions.bin firmware.elf; do
             if [ -f "$BUILD_DIR/$name" ]; then
               cp "$BUILD_DIR/$name" "$ARTIFACT_DIR/${{ matrix.env }}-$name"
             fi
