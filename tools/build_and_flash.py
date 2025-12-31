@@ -246,7 +246,7 @@ def create_build_timestamp(data_dir: str) -> str:
     """Create build_timestamp.txt with format MMDDYYHHMMSS for filesystem identification."""
     override = os.environ.get("BUILD_TIMESTAMP_OVERRIDE", "").strip()
     if override:
-        if not (override.isdigit() and len(override) == 12):
+        if not re.fullmatch(r"\d{12}", override):
             raise ValueError(
                 "BUILD_TIMESTAMP_OVERRIDE must be 12 digits in MMDDYYHHMMSS format."
             )
