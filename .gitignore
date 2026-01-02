@@ -16,6 +16,8 @@ __pycache__/
 .codex
 .antigravity
 .gemini
+.automation
+.customlib
 GEMINI.md
 CLAUDE.md
 
