@@ -1273,12 +1273,12 @@ void ElegooCC::checkFilamentMovement(unsigned long currentTime)
         return;
     }
 
-    // Disarm jam detection when filament has run out and runout-pause is enabled.
-    // The firmware waits 700mm before pausing (to match stock firmware behavior).
-    // During this window, lack of filament motion is expected and should not trigger a jam.
-    // We check filamentRunout (pin state) rather than runoutPausePending because
-    // checkFilamentRunout() runs after this function in the loop.
-    if (filamentRunout && settingsManager.getPauseOnRunout())
+    // Disarm jam detection when filament has run out.
+    // If we are in a runout state, we expect no flow.
+    // Even if 'pause_on_runout' is disabled (meaning the user wants to ignore the runout sensor),
+    // we must also suppress jam detection, otherwise the lack of flow will trigger a "Jam" pause,
+    // which defeats the user's intent to not pause.
+    if (filamentRunout)
     {
         filamentStopped = false;
         return;
