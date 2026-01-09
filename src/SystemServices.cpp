@@ -2,6 +2,7 @@
 
 #include <ESPmDNS.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <time.h>
 
 #include "ElegooCC.h"
@@ -158,9 +159,49 @@ void SystemServices::startAPMode()
 {
     stationConnected = false;
     logger.log("Starting AP mode");
+
+    // Ensure WiFi is properly cleaned up before starting AP
+    WiFi.disconnect(true);
+    WiFi.softAPdisconnect(true);
+    delay(200);
+
+    // Set WiFi country code (helps with regulatory compliance and visibility)
+    wifi_country_t country = {
+        .cc = "US",
+        .schan = 1,
+        .nchan = 11,
+        .policy = WIFI_COUNTRY_POLICY_AUTO
+    };
+    esp_wifi_set_country(&country);
+
+    // Explicitly set WiFi to AP mode only
     WiFi.mode(WIFI_AP);
-    WiFi.softAP("OFS.local");
-    logger.logf("AP IP Address: %s", WiFi.softAPIP().toString().c_str());
+    delay(200);
+
+    // Use channel 11 (very common) and explicit parameters
+    const char* apSSID = "OFS";
+    bool apStarted = WiFi.softAP(apSSID, "", 11, false, 4);
+
+    if (apStarted) {
+        logger.log("AP started successfully");
+        logger.logf("AP SSID: %s", apSSID);
+        logger.logf("AP IP Address: %s", WiFi.softAPIP().toString().c_str());
+        logger.logf("AP MAC Address: %s", WiFi.softAPmacAddress().c_str());
+        logger.logf("AP Station Count: %d", WiFi.softAPgetStationNum());
+
+        // Check if AP is actually broadcasting
+        wifi_mode_t mode;
+        esp_wifi_get_mode(&mode);
+        logger.logf("WiFi Mode: %d (1=STA, 2=AP, 3=STA+AP)", mode);
+
+        // Get and log the actual channel being used
+        uint8_t primary;
+        wifi_second_chan_t second;
+        esp_wifi_get_channel(&primary, &second);
+        logger.logf("AP Channel: %d", primary);
+    } else {
+        logger.log("ERROR: Failed to start AP!");
+    }
 
     if (!MDNS.begin("OFS"))
     {
@@ -193,17 +234,34 @@ void SystemServices::handleSuccessfulWifiConnection()
 
 bool SystemServices::connectToWifiStation(bool isReconnect)
 {
+    // Fully disconnect and clean up before attempting connection
+    WiFi.disconnect(true);
+    delay(100);
+
     WiFi.mode(WIFI_STA);
+    delay(100);
+
     const char* action = isReconnect ? "Reconnecting to" : "Connecting to";
     logger.logf("%s WiFi: %s", action, settingsManager.getSSID().c_str());
+    logger.logf("WiFi password length: %d", settingsManager.getPassword().length());
 
-    WiFi.begin(settingsManager.getSSID().c_str(), settingsManager.getPassword().c_str());
+    // Explicitly set channel to 0 (auto-detect) to help with connection
+    WiFi.begin(settingsManager.getSSID().c_str(), settingsManager.getPassword().c_str(), 0);
 
-    const unsigned long CONNECT_TIMEOUT_MS = 15000;
+    const unsigned long CONNECT_TIMEOUT_MS = 20000;  // Increased to 20 seconds
     unsigned long       startTime          = millis();
 
     while (WiFi.status() != WL_CONNECTED && (millis() - startTime) < CONNECT_TIMEOUT_MS)
     {
+        wl_status_t currentStatus = WiFi.status();
+
+        // Log status changes for debugging
+        static wl_status_t lastStatus = WL_IDLE_STATUS;
+        if (currentStatus != lastStatus) {
+            logger.logf("WiFi status changed: %d", currentStatus);
+            lastStatus = currentStatus;
+        }
+
         Serial.print('.');
         vTaskDelay(pdMS_TO_TICKS(500));
         yield();
@@ -215,6 +273,27 @@ bool SystemServices::connectToWifiStation(bool isReconnect)
     {
         handleSuccessfulWifiConnection();
         return true;
+    }
+
+    // Log detailed failure reason
+    wl_status_t status = WiFi.status();
+    logger.logf("WiFi connection failed with status: %d", status);
+    switch(status) {
+        case WL_NO_SSID_AVAIL:
+            logger.log("Error: SSID not found");
+            break;
+        case WL_CONNECT_FAILED:
+            logger.log("Error: Connection failed (wrong password?)");
+            break;
+        case WL_CONNECTION_LOST:
+            logger.log("Error: Connection lost");
+            break;
+        case WL_DISCONNECTED:
+            logger.log("Error: Disconnected");
+            break;
+        default:
+            logger.logf("Error: Unknown status %d", status);
+            break;
     }
 
     if (isReconnect)

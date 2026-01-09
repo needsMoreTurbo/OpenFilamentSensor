@@ -69,6 +69,17 @@ void setup()
 {
     // Initialize serial and log reset reason FIRST for crash diagnostics
     Serial.begin(115200);
+
+    // Wait for USB CDC serial connection (ESP32-C3 with USB CDC)
+    // This ensures serial output is visible when monitoring
+    #if ARDUINO_USB_CDC_ON_BOOT
+    unsigned long startTime = millis();
+    while (!Serial && (millis() - startTime < 3000)) {
+        delay(10);
+    }
+    delay(100); // Small delay for connection stability
+    #endif
+
     lastResetReason = esp_reset_reason();
     Serial.printf("Reset reason: %s (%d)\n", getResetReasonString(lastResetReason), lastResetReason);
 
